@@ -53,7 +53,7 @@ function glowTexture(THREE) {
   return tex;
 }
 
-function AgentScene({ activeAgent, approved = false, isRunning = false, demo = false, onPulseReady, label = "Seven agents orbiting the colleague's goal and passing work between them" }, ref) {
+function AgentScene({ activeAgent, approved = false, isRunning = false, ambient = false, onPulseReady, label = "Seven agents orbiting the colleague's goal and passing work between them" }, ref) {
   const hostRef = useRef(null);
   const labelRefs = useRef([]);
   const coreLabelRef = useRef(null);
@@ -62,7 +62,7 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
   const props = useRef({});
   const [fallback, setFallback] = useState(true);
   const [hovered, setHovered] = useState(-1);
-  props.current = { activeAgent, approved, isRunning, demo, onPulseReady };
+  props.current = { activeAgent, approved, isRunning, ambient, onPulseReady };
 
   useImperativeHandle(ref, () => ({
     pulseLoop: (from, to) => apiRef.current?.pulseLoop(from, to),
@@ -241,7 +241,8 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
           pointer: new THREE.Vector2(),
           tiltTarget: new THREE.Vector2(),
           chatter: 0.6,
-          demoStep: 0,
+          tourStep: 0,
+          spin: 0.14,
           inView: true,
           wakeUntil: 0,
         };
@@ -264,9 +265,10 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
             const el = labelRefs.current[i];
             screen[i] = project(tmpB, el, 16);
             if (el) {
-              const behind = tmpB.distanceTo(camera.position) > coreZ + 0.4;
-              el.style.opacity = i === state.hovered || i === state.active ? "1" : behind ? "0.38" : "0.85";
-              el.style.zIndex = behind ? "1" : "3";
+              const depth = tmpB.distanceTo(camera.position) - coreZ; // < 0 in front of the core, > 0 behind it
+              const fade = Math.min(Math.max((depth + 1.5) / 3, 0), 1);
+              el.style.opacity = i === state.hovered || i === state.active ? "1" : (0.9 - fade * 0.55).toFixed(3);
+              el.style.zIndex = depth > 0 ? "1" : "3";
             }
           });
           project(core.getWorldPosition(tmpA), coreLabelRef.current, 34);
@@ -281,17 +283,21 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
           const dt = Math.min(clock.getDelta(), 0.05);
           const t = clock.elapsedTime;
           const motion = !reduceMotion;
-          const { isRunning: running, demo: demoMode } = props.current;
-          const live = running || demoMode;
+          const { isRunning: running, ambient: tourMode } = props.current;
+          const live = running || tourMode;
+          // Frame-rate independent easing: the same glide at 30, 60 or 120 fps.
+          const ease = (rate) => 1 - Math.exp(-dt * rate);
 
           if (motion) {
-            const speed = state.hovered >= 0 ? 0.015 : live ? 0.09 : 0.035;
-            orbit.rotation.y += dt * speed;
-            gate.rotation.y -= dt * 0.02;
+            // Angular speed eases between states, so the orbit never jerks when you hover or a run starts.
+            const targetSpin = state.hovered >= 0 ? 0.03 : live ? 0.2 : 0.14;
+            state.spin += (targetSpin - state.spin) * ease(2.2);
+            orbit.rotation.y += dt * state.spin;
+            gate.rotation.y -= dt * 0.03;
             coreWire.rotation.y += dt * 0.25;
             coreWire.rotation.x += dt * 0.08;
-            stars.rotation.y += dt * 0.004;
-            state.tiltTarget.lerp(state.pointer, 0.06);
+            stars.rotation.y += dt * 0.006;
+            state.tiltTarget.lerp(state.pointer, ease(3));
             tilt.rotation.x = state.tiltTarget.y * 0.12;
             tilt.rotation.z = -0.1 - state.tiltTarget.x * 0.08;
           }
@@ -303,11 +309,11 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
             const isActive = i === state.active && (running || props.current.approved);
             const isHover = i === state.hovered;
             const target = isHover ? 1.45 : isActive ? 1.35 : 1;
-            a.scale += (target - a.scale) * (motion ? 0.14 : 1);
+            a.scale += (target - a.scale) * (motion ? ease(9) : 1);
             a.mesh.scale.setScalar(a.scale);
             if (motion) a.mesh.position.y = Math.sin(t * 1.3 + a.phase) * 0.07;
             const g = isActive ? 1 : isHover ? 0.6 : 0;
-            a.glow += (g - a.glow) * (motion ? 0.1 : 1);
+            a.glow += (g - a.glow) * (motion ? ease(6) : 1);
             a.mat.emissiveIntensity = a.glow * 0.8;
             a.halo.material.opacity = a.glow * (0.55 + breathe * 0.1);
           });
@@ -335,13 +341,13 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, demo = f
                   ? send("core", state.active, C.violet, { duration: 0.9, lift: 0.5, size: 0.4 })
                   : send(state.active, "core", C.violet, { duration: 0.9, lift: 0.5, size: 0.4 });
                 state.chatter = 1.1 + Math.random() * 0.9;
-              } else if (demoMode) {
+              } else if (tourMode) {
                 // Goal screen: a calm tour of the pipeline, with an occasional correction loop.
-                const i = state.demoStep % (AGENTS.length - 1);
-                if (i === 2 && state.demoStep % 12 === 2) send(2, 1, C.pink, { lift: 1.4, size: 0.6 });
+                const i = state.tourStep % (AGENTS.length - 1);
+                if (i === 2 && state.tourStep % 12 === 2) send(2, 1, C.pink, { lift: 1.4, size: 0.6 });
                 else send(i, i + 1, C.gold);
                 if (i % 2 === 0) send("core", i + 1, C.violet, { duration: 0.9, lift: 0.4, size: 0.35 });
-                state.demoStep++;
+                state.tourStep++;
                 state.chatter = 1.5;
               }
             }

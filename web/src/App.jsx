@@ -136,7 +136,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
                   <div className="empty-icon" aria-hidden="true">✦</div>
                   <h3>Start with a class set</h3>
                   <p>Load a class to review each learner’s marks, diagnosed gap, and checked catch-up task.</p>
-                  <button className="btn-primary" type="button" disabled>Load demo class <span aria-hidden="true">→</span></button>
+                  <button className="btn-primary" type="button" disabled>Load class set <span aria-hidden="true">→</span></button>
                   <small>The run service is not connected yet.</small>
                 </div>
           )}
