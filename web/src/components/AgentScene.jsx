@@ -28,16 +28,18 @@ function SvgFallback() {
   );
 }
 
-function AgentScene({ activeAgent, approved = false, onPulseReady }, ref) {
+function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseReady }, ref) {
   const hostRef = useRef(null);
   const apiRef = useRef(null);
   const activeAgentRef = useRef(activeAgent);
   const approvedRef = useRef(approved);
+  const isRunningRef = useRef(isRunning);
   const onPulseReadyRef = useRef(onPulseReady);
   const [fallback, setFallback] = useState(true);
 
   activeAgentRef.current = activeAgent;
   approvedRef.current = approved;
+  isRunningRef.current = isRunning;
   onPulseReadyRef.current = onPulseReady;
 
   useImperativeHandle(ref, () => ({
@@ -47,6 +49,10 @@ function AgentScene({ activeAgent, approved = false, onPulseReady }, ref) {
   useEffect(() => {
     apiRef.current?.setApproved(approved);
   }, [approved]);
+
+  useEffect(() => {
+    apiRef.current?.render();
+  }, [activeAgent, isRunning]);
 
   useEffect(() => {
     let disposed = false;
@@ -131,47 +137,59 @@ function AgentScene({ activeAgent, approved = false, onPulseReady }, ref) {
               new THREE.MeshStandardMaterial({ color: "#FF8FC7", emissive: "#C2186B" })
             );
             scene.add(pulseMesh);
+            render();
             pulseTimer = window.setTimeout(() => {
               if (!pulseMesh) return;
               scene.remove(pulseMesh);
               pulseMesh.geometry.dispose();
               pulseMesh.material.dispose();
               pulseMesh = undefined;
+              render();
             }, 900);
           },
           setApproved(value) {
             approvalRing.material.color.set(value ? "#F9E27D" : "#FFF6CC");
             approvalRing.material.emissive.set(value ? "#F9E27D" : "#000000");
             if (value) this.pulseLoop("Checker", "Delivery");
+            else render();
+          },
+          render() {
+            if (frameId == null && !disposed && !document.hidden) {
+              frameId = requestAnimationFrame(renderFrame);
+            }
           }
         };
-        onPulseReadyRef.current?.(apiRef.current.pulseLoop);
-
         const resize = () => {
           if (!hostRef.current || !renderer) return;
           const { clientWidth, clientHeight } = hostRef.current;
           renderer.setSize(clientWidth, clientHeight);
           camera.aspect = clientWidth / Math.max(clientHeight, 1);
           camera.updateProjectionMatrix();
+          apiRef.current?.render();
         };
         observer = new ResizeObserver(resize);
         observer.observe(hostRef.current);
-        resize();
 
-        const render = (time) => {
+        const renderFrame = (time) => {
+          frameId = undefined;
           if (disposed || document.hidden) return;
           meshes.forEach((mesh, index) => {
-            mesh.position.y = mesh.userData.baseY + Math.sin(time * 0.0007 + index) * 0.045;
+            mesh.position.y = mesh.userData.baseY
+              + (isRunningRef.current ? Math.sin(time * 0.0007 + index) * 0.045 : 0);
             const isActive = mesh.userData.agentName === activeAgentRef.current;
             mesh.scale.setScalar(isActive ? 1.25 : 1);
             mesh.material.emissive.set(isActive ? "#F9E27D" : "#000000");
             mesh.material.emissiveIntensity = isActive ? 0.5 : 0;
           });
           renderer.render(scene, camera);
-          frameId = requestAnimationFrame(render);
+          if (isRunningRef.current) {
+            frameId = requestAnimationFrame(renderFrame);
+          }
         };
+        resize();
+        onPulseReadyRef.current?.(apiRef.current.pulseLoop);
         const start = () => {
-          if (frameId == null && !disposed) frameId = requestAnimationFrame(render);
+          apiRef.current?.render();
         };
         const stop = () => {
           if (frameId != null) cancelAnimationFrame(frameId);
