@@ -64,3 +64,15 @@ The learner CSV uses the team's `TEAM_INBOX_1`–`TEAM_INBOX_3` placeholders. Th
 - `shared/schemas.js` is frozen; changes need everyone's OK.
 - Branches: `junior/*`, `lesedi/*`, `owethu/*`. Junior merges at each checkpoint.
 - Learner records in `data/learners.csv` are fictional. `TEAM_INBOX_1`–`TEAM_INBOX_3` are placeholders, not valid email destinations.
+
+## Deployment (Vercel front end + Render API)
+
+The API keeps runs in memory and streams them over SSE for several minutes, so it runs as a normal Node service on Render; Vercel serves the built UI and forwards `/api/*` to it (`vercel.json`).
+
+**Render (Web Service):** build `npm install`, start `npm start`, health check `/api/health`. Environment:
+`NODE_VERSION=24`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `LLM_PRIMARY=gemini`, `GEMINI_MODEL=gemini-3.5-flash-lite`,
+`GROQ_MODEL_LARGE=openai/gpt-oss-120b`, `GROQ_MODEL_SMALL=openai/gpt-oss-20b`, `CONCURRENCY=2`, `LLM_TIMEOUT_MS=60000`,
+`NO_CACHE=0`, `FAKE_LLM=0`, `DEMO_PACE_MS=0` (600 for the pitch). Leave `PORT` unset; leave `SMTP_*` unset for preview-only email.
+
+**Vercel:** import the repo with framework preset "Other"; `vercel.json` sets the build. No environment variables.
+If the Render URL differs from `the-assess-to-intervene-colleague.onrender.com`, update it in `vercel.json`.
