@@ -8,11 +8,19 @@ function list(value) {
   return Array.isArray(value) ? value : Object.values(value ?? {});
 }
 
-function statusCounts(marks) {
-  const counts = { needs_teacher: 0, corrected: 0, total: marks.length };
+function changedMarkEvents(log) {
+  return list(log).filter((event) =>
+    event.kind === "correction" &&
+    Number.isFinite(event.data?.before) &&
+    Number.isFinite(event.data?.after) &&
+    event.data.before !== event.data.after
+  );
+}
+
+function statusCounts(marks, correctionCount) {
+  const counts = { needs_teacher: 0, corrected: correctionCount, total: marks.length };
   for (const mark of marks) {
     if (mark.status === "needs_teacher") counts.needs_teacher += 1;
-    if ((mark.attempt ?? 1) > 1) counts.corrected += 1;
   }
   return counts;
 }
@@ -20,7 +28,8 @@ function statusCounts(marks) {
 export async function brief({ run }, ctx) {
   const marks = list(run.marks);
   const diagnoses = list(run.diagnoses);
-  const counts = statusCounts(marks);
+  const counts = statusCounts(marks, changedMarkEvents(run.log).length);
+  const learnersNeedingSupport = diagnoses.filter((item) => item.severity !== "on_track").length;
   const grouped = new Map();
   for (const diagnosis of diagnoses.filter((item) => item.severity !== "on_track")) {
     const learners = grouped.get(diagnosis.root_gap) ?? [];
@@ -35,7 +44,7 @@ export async function brief({ run }, ctx) {
       scripts_marked: counts.total,
       corrections_made: counts.corrected,
       needs_teacher_review: counts.needs_teacher,
-      learners_needing_support: diagnoses.filter((item) => item.severity === "needs_help").length,
+      learners_needing_support: learnersNeedingSupport,
       learner_gaps: [...grouped.entries()].map(([gap, learners]) => ({ gap, learners })),
       class_gaps: run.classGaps ?? [],
       unresolved_learners: marks
@@ -56,7 +65,7 @@ export async function brief({ run }, ctx) {
     `- Scripts marked: ${counts.total}`,
     `- Corrections made: ${counts.corrected}`,
     `- Needs teacher review: ${counts.needs_teacher}`,
-    `- Learners needing support: ${diagnoses.filter((item) => item.severity === "needs_help").length}`,
+    `- Learners needing support: ${learnersNeedingSupport}`,
     "",
     "## Learners needing support",
     ...(grouped.size
@@ -198,6 +207,7 @@ export async function marksXlsx(run, outputPath) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Marks");
   const marks = list(run.marks);
+  const correctedLearners = new Set(changedMarkEvents(run.log).map((event) => event.ref));
   const criteria = [...new Set(marks.flatMap((mark) => mark.scores.map((score) => score.criterion)))];
   sheet.columns = [
     { header: "Learner", key: "learner_id", width: 18 },
@@ -214,7 +224,7 @@ export async function marksXlsx(run, outputPath) {
       learner_id: learnerId,
       total_pct: mark.total_pct,
       status: mark.status ?? "ok",
-      corrected: (mark.attempt ?? 1) > 1 ? "Yes" : "No",
+      corrected: correctedLearners.has(learnerId) ? "Yes" : "No",
       root_gap: diagnosis?.root_gap ?? ""
     };
     criteria.forEach((criterion, index) => {

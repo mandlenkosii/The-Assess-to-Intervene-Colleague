@@ -10,6 +10,8 @@ import { createLLM } from "../llm.js";
 import { createRunStore } from "../runStore.js";
 import { approveRun, diagnoseInCode, runColleague } from "../orchestrator.js";
 import { plan, recalibrate } from "../agents/planner.js";
+import { createApp } from "../app.js";
+import { brief as buildBrief, marksXlsx as buildMarksXlsx } from "../agents/delivery.js";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "colleague-test-"));
 const Pong = z.object({ ok: z.boolean() });
@@ -92,6 +94,53 @@ function seed(store, n = 6) {
     learners: Object.fromEntries(ids.map((id) => [id, { learner_id: id, name: id, grade: 10, email: `${id}@example.test` }])),
   });
 }
+
+test("brief and workbook routes download delivered artifacts and report missing files clearly", async () => {
+  const dir = tmp();
+  const store = createRunStore({ dir });
+  const ready = seed(store, 2);
+  const waiting = seed(store, 1);
+  const deps = {
+    store,
+    llm: {},
+    agents: agents({ brief: buildBrief, marksXlsx: buildMarksXlsx })
+  };
+  await runColleague(ready.id, deps);
+  assert.equal(ready.status, "awaiting_approval");
+  await approveRun(ready.id, {}, deps).delivery;
+  assert.equal(ready.status, "done");
+
+  const { app } = createApp(deps);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const briefResponse = await fetch(`${base}/api/runs/${ready.id}/brief`);
+    assert.equal(briefResponse.status, 200);
+    assert.match(briefResponse.headers.get("content-disposition"), /filename="brief\.md"/);
+    assert.match(await briefResponse.text(), /Class assessment brief/);
+
+    const workbookResponse = await fetch(`${base}/api/runs/${ready.id}/marks.xlsx`);
+    assert.equal(workbookResponse.status, 200);
+    assert.match(workbookResponse.headers.get("content-type"), /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
+    assert.match(workbookResponse.headers.get("content-disposition"), /filename="marks\.xlsx"/);
+    assert.equal(Buffer.from(await workbookResponse.arrayBuffer()).subarray(0, 2).toString(), "PK");
+
+    const unavailable = await fetch(`${base}/api/runs/${waiting.id}/brief`);
+    assert.equal(unavailable.status, 404);
+    assert.deepEqual(await unavailable.json(), { error: "brief.md is not available yet" });
+
+    const unknown = await fetch(`${base}/api/runs/unknown/marks.xlsx`);
+    assert.equal(unknown.status, 404);
+    assert.deepEqual(await unknown.json(), { error: "Run not found" });
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+    await Promise.all([store.flush(ready.id), store.flush(waiting.id)]);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 // ---------- restart ----------
 test("runs survive a restart: latest is reloaded, in-flight runs are marked interrupted, a gated run can still be approved", async () => {

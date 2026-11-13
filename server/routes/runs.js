@@ -4,9 +4,13 @@
 //   GET  /api/runs/latest   → snapshot of the most recent run
 //   GET  /api/runs/:id      → snapshot (no script texts)
 //   GET  /api/runs/:id/events  SSE: replays the log, then streams live events
+//   GET  /api/runs/:id/brief → generated brief.md
+//   GET  /api/runs/:id/marks.xlsx → generated workbook
 //   POST /api/runs/:id/approve  { approved: true, excluded?: [learnerIds] } → 202, starts delivery
 import express from "express";
+import { access } from "node:fs/promises";
 import multer from "multer";
+import { join } from "node:path";
 import { InputError, loadDemoInputs, uploadInputs } from "../inputs.js";
 import { approveRun, runColleague } from "../orchestrator.js";
 
@@ -54,6 +58,14 @@ export function runsRouter({ store, llm, agents }) {
     snap ? res.json(snap) : res.status(404).json({ error: "Run not found" });
   });
 
+  router.get("/runs/:id/brief", (req, res, next) => {
+    downloadRunArtifact(req, res, next, store, "brief.md");
+  });
+
+  router.get("/runs/:id/marks.xlsx", (req, res, next) => {
+    downloadRunArtifact(req, res, next, store, "marks.xlsx");
+  });
+
   router.get("/runs/:id/events", (req, res) => {
     const run = store.get(req.params.id);
     if (!run) return res.status(404).json({ error: "Run not found" });
@@ -84,4 +96,23 @@ export function runsRouter({ store, llm, agents }) {
   });
 
   return router;
+}
+
+async function downloadRunArtifact(req, res, next, store, filename) {
+  try {
+    const run = store.get(req.params.id);
+    if (!run) return res.status(404).json({ error: "Run not found" });
+
+    const directory = store.runDir?.(run.id);
+    if (!directory) return res.status(404).json({ error: `${filename} is not available yet` });
+
+    const filePath = join(directory, filename);
+    await access(filePath);
+    res.download(filePath, filename, (error) => {
+      if (error) next(error);
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") return res.status(404).json({ error: `${filename} is not available yet` });
+    next(error);
+  }
 }
