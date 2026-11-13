@@ -1,42 +1,7 @@
 import { normalizeWhitespace } from "./parse.js";
+import { quoteExists } from "../shared/evidence.js";
 
-function normalizeQuote(value) {
-  return normalizeWhitespace(value)
-    .replace(/[“”‘’]/gu, "'")
-    .replace(/[‘’]/gu, "'")
-    .replace(/[‐‑‒–—]/gu, "-")
-    .toLocaleLowerCase("en");
-}
-
-export function quoteExists(quote, text) {
-  if (typeof quote !== "string" || quote.trim() === "" || typeof text !== "string") {
-    return false;
-  }
-  const normalizedQuote = normalizeQuote(quote);
-  const normalizedText = normalizeQuote(text);
-  if (normalizedText.includes(normalizedQuote)) {
-    return true;
-  }
-
-  const tokens = normalizedQuote.match(/[\p{L}\p{N}]+/gu) || [];
-  if (tokens.length === 0) {
-    return false;
-  }
-  const sourceTokens = normalizedText.match(/[\p{L}\p{N}]+/gu) || [];
-  const requiredMatches = Math.ceil(tokens.length * 0.9);
-  for (let start = 0; start + tokens.length <= sourceTokens.length; start += 1) {
-    let matches = 0;
-    for (let offset = 0; offset < tokens.length; offset += 1) {
-      if (tokens[offset] === sourceTokens[start + offset]) {
-        matches += 1;
-      }
-    }
-    if (matches >= requiredMatches) {
-      return true;
-    }
-  }
-  return false;
-}
+export { quoteExists } from "../shared/evidence.js";
 
 export function scoresInRange(mark, rubric) {
   const criteria = rubric.criteria || [];

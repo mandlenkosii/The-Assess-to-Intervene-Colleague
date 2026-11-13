@@ -42,6 +42,8 @@ runs/ .cache/       Run state/logs and the model cache (gitignored)
 
 The marking slice includes learner CSV validation, TXT/PDF/DOCX text extraction, rubric checks, a rubric-constrained Marker, and a Calibrator that checks marks and blind-re-marks a deterministic sample. `data/scripts.js` and `data/expected.json` provide 30 synthetic scripts and expected rubric totals for tests. The marking tests run with `npm test`.
 
+The teacher UI includes a six-stage live trace, expandable rubric evidence with exact-quote highlights, and a correction log.
+
 The learner CSV uses the team's `TEAM_INBOX_1`–`TEAM_INBOX_3` placeholders. They are not deliverable addresses; the delivery agent rejects these placeholders if email delivery is enabled.
 
 ## Team rules
