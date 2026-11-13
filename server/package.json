@@ -1,0 +1,14 @@
+{
+  "name": "@colleague/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@colleague/shared": "*",
+    "express": "^4.21.2",
+    "exceljs": "^4.4.0",
+    "nodemailer": "^10.5.0"
+  }
+}

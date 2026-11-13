@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+.cache/
+runs/
+node_modules/
+dist/
+coverage/
