@@ -163,6 +163,58 @@ test("delivery preserves preview and reports unavailable credentials instead of 
   assert.equal(outbox[1].reason, "No final mark available");
 });
 
+test("delivery sends eligible emails and records per-recipient failures without network access", async () => {
+  const sent = [];
+  const events = [];
+  let closed = 0;
+  const run = {
+    learners: [
+      { learner_id: "L1", name: "<Learner One>", email: "one@example.test" },
+      { learner_id: "L2", name: "Learner Two", email: "two@example.test" },
+      { learner_id: "L3", name: "Learner Three", email: "three@example.test" },
+      { learner_id: "L4", name: "Learner Four", email: "four@example.test" }
+    ],
+    marks: [
+      mark("L1", 42),
+      { ...mark("L2", 48), status: "needs_teacher" },
+      mark("L3", 60),
+      mark("L4", 70)
+    ],
+    diagnoses: [],
+    tasks: {}
+  };
+  const outbox = await sendAll(run, {
+    excluded: ["L4"],
+    env: { SMTP_USER: "sender@example.test", SMTP_PASS: "test-password" },
+    transportFactory(options) {
+      assert.deepEqual(options, {
+        service: "gmail",
+        pool: true,
+        maxConnections: 3,
+        auth: { user: "sender@example.test", pass: "test-password" }
+      });
+      return {
+        async sendMail(message) {
+          sent.push(message);
+          if (message.to === "three@example.test") throw new Error("Recipient rejected");
+        },
+        close() {
+          closed += 1;
+        }
+      };
+    },
+    ctx: { emit: async (event) => events.push(event) }
+  });
+
+  assert.deepEqual(sent.map((message) => message.to), ["one@example.test", "three@example.test"]);
+  assert.match(sent[0].html, /&lt;Learner One&gt;/);
+  assert.deepEqual(outbox.map(({ status }) => status), ["sent", "skipped", "failed", "skipped"]);
+  assert.match(outbox[2].error, /Recipient rejected/);
+  assert.equal(closed, 1);
+  assert.equal(events.length, 4);
+  assert.ok(events.every((event) => LogEvent.parse(event).stage === "deliver"));
+});
+
 test("marks workbook includes per-criterion and status columns", async () => {
   const workbook = await marksXlsx({
     marks: [mark("L1", 60)],

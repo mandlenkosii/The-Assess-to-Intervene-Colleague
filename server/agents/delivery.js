@@ -113,7 +113,12 @@ function escapeHtml(text) {
   })[char]);
 }
 
-export async function sendAll(run, { excluded = [], env = process.env, ctx } = {}) {
+export async function sendAll(run, {
+  excluded = [],
+  env = process.env,
+  ctx,
+  transportFactory = (options) => nodemailer.createTransport(options)
+} = {}) {
   const learners = list(run.learners);
   const diagnoses = list(run.diagnoses);
   const marks = list(run.marks);
@@ -151,7 +156,7 @@ export async function sendAll(run, { excluded = [], env = process.env, ctx } = {
   if (eligible.length) {
     let transporter;
     try {
-      transporter = nodemailer.createTransport({
+      transporter = transportFactory({
         service: "gmail",
         pool: true,
         maxConnections: 3,
