@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { MarkSchema } from "../../shared/schemas.js";
+import { Mark } from "@colleague/shared";
 import { checkMark } from "../checks.js";
 
-const BlindMarkSchema = MarkSchema.pick({ script_id: true, scores: true });
+const BlindMarkSchema = Mark.pick({ script_id: true, scores: true });
 
 function stableRank(scriptId) {
   return createHash("sha256").update(scriptId).digest("hex");
@@ -120,7 +120,7 @@ export async function reviewBatch({
     if (reasons.length > 0) {
       const review = { script_id: scriptId, verdict: "reject", reasons };
       reviews.push(review);
-      ctx.emit?.({
+      await ctx.emit?.({
         t: new Date().toISOString(),
         stage: "check",
         agent: "calibrator",
@@ -132,7 +132,7 @@ export async function reviewBatch({
     } else {
       const review = { script_id: scriptId, verdict: "accept", reasons: [] };
       reviews.push(review);
-      ctx.emit?.({
+      await ctx.emit?.({
         t: new Date().toISOString(),
         stage: "check",
         agent: "calibrator",
@@ -164,7 +164,7 @@ export async function reviewBatch({
     if (reasons.length > 0) {
       review.verdict = "reject";
       review.reasons = reasons;
-      ctx.emit?.({
+      await ctx.emit?.({
         t: new Date().toISOString(),
         stage: "check",
         agent: "calibrator",

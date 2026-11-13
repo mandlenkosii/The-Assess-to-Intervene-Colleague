@@ -1,4 +1,4 @@
-import { MarkSchema } from "../../shared/schemas.js";
+import { Mark } from "@colleague/shared";
 
 const MIN_FEEDBACK_WORDS = 80;
 const MAX_FEEDBACK_WORDS = 150;
@@ -46,12 +46,12 @@ export async function markScript({
       })
     }
   ], {
-    schema: MarkSchema.omit({ total_pct: true, attempt: true, status: true }),
+    schema: Mark.omit({ total_pct: true, attempt: true, status: true }),
     tier: "large",
     temperature: 0.2
   });
 
-  const parsed = MarkSchema.omit({ total_pct: true, attempt: true, status: true }).parse({
+  const parsed = Mark.omit({ total_pct: true, attempt: true, status: true }).parse({
     script_id: scriptId,
     scores: modelOutput.scores,
     feedback: modelOutput.feedback
@@ -68,14 +68,14 @@ export async function markScript({
     throw new Error("Rubric maximum score must be greater than zero");
   }
   const earned = parsed.scores.reduce((sum, score) => sum + score.score, 0);
-  const mark = MarkSchema.parse({
+  const mark = Mark.parse({
     ...parsed,
     total_pct: (earned / maximum) * 100,
     attempt,
     status: "ok"
   });
 
-  ctx.emit?.({
+  await ctx.emit?.({
     t: new Date().toISOString(),
     stage: "act",
     agent: "marker",

@@ -2,7 +2,10 @@
 .env.*
 !.env.example
 node_modules/
-.cache/
-runs/
+dist/
 web/dist/
 coverage/
+runs/
+.cache/
+*.log
+.DS_Store
