@@ -476,10 +476,19 @@ export async function deliverRun(runId, { store, llm, agents }) {
     };
     if (dir) {
       await mkdir(dir, { recursive: true });
-      if (run.brief) await step("Saving brief.md", () => writeFile(join(dir, "brief.md"), run.brief, "utf8"));
+      if (run.brief) await step("Saving brief.md", async () => {
+        await writeFile(join(dir, "brief.md"), run.brief, "utf8");
+        emit({ stage: "deliver", agent: "delivery", kind: "log", message: "brief.md written", data: { artifact: "brief.md" } });
+      });
       if (agents.marksXlsx) {
         const ok = await step("Writing marks.xlsx", () => agents.marksXlsx(run, join(dir, "marks.xlsx")));
-        if (ok) emit({ stage: "deliver", agent: "delivery", kind: "log", message: `marks.xlsx written (${Object.keys(run.marks).length} rows)` });
+        if (ok) emit({
+          stage: "deliver",
+          agent: "delivery",
+          kind: "log",
+          message: `marks.xlsx written (${Object.keys(run.marks).length} rows)`,
+          data: { artifact: "marks.xlsx" }
+        });
       }
     }
 

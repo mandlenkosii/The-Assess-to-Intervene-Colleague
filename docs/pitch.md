@@ -62,7 +62,7 @@ The demo is the **warmed, cached run** with `DEMO_PACE_MS=600`, so it unfolds in
 
 ## 3:45 – 4:15 · The teacher decides, then it delivers
 
-**Lesedi:** open the **Approval** tab, scroll the brief, click **Approve and send**, then confirm. **Owethu:** hold up the phone as the email arrives. **Lesedi:** open `runs/<id>/marks.xlsx`.
+**Lesedi:** open the **Approval** tab, scroll the brief, click **Approve and send**, then confirm. **Owethu:** hold up the phone as the email arrives. **Lesedi:** in **Outbox**, download the teacher brief and marks workbook.
 
 > "Nothing has been sent yet. The teacher reads a one-page brief: who needs help, why, and what the colleague wasn't sure about. Then approves.
 >

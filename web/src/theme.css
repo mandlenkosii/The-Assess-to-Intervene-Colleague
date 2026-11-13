@@ -104,6 +104,9 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--candy-deep); ou
 .btn-secondary { border: 1px solid var(--line); border-radius: 9px; padding: var(--space-1) var(--space-2); color: var(--aubergine); background: transparent; }
 .outbox-list { padding: 0; list-style: none; }
 .outbox-list > li { display: flex; justify-content: space-between; gap: var(--space-2); align-items: flex-start; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+.outbox-downloads { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0; }
+.outbox-downloads a { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; padding: var(--space-1) var(--space-2); color: var(--aubergine); font-size: 12px; font-weight: 600; text-decoration: none; }
+.outbox-downloads a:hover { background: rgba(249,226,125,.3); }
 .outbox-message { display: grid; gap: var(--space-1); min-width: 0; font-size: 12px; }
 .outbox-message span, .outbox-message small { color: var(--muted); }
 .outbox-message small { color: var(--candy-deep); }
