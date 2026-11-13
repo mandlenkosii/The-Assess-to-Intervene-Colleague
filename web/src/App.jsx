@@ -61,18 +61,23 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   const activeAgent = agentLabels[String(lastAgent ?? "").toLowerCase()] ?? lastAgent;
   const runStatus = run?.status ?? "Ready for a class";
   const isRunning = runningStatuses.has(run?.status);
+  // Stage bar: where the colleague is now, and how far it has got (corrections loop back, so "reached" is the furthest seen).
+  const currentStage = run?.status === "done" ? -1 : stages.findIndex((stage) => stage.toLowerCase() === events.at(-1)?.stage);
+  const reachedStage = run?.status === "done"
+    ? stages.length
+    : events.reduce((furthest, event) => Math.max(furthest, stages.findIndex((stage) => stage.toLowerCase() === event.stage)), -1);
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="/">Assess-to-Intervene <span>Colleague</span></a>
-        <div className="status-pill" aria-live="polite"><span className="status-dot" /> {statusLabel(run) ?? runStatus}</div>
+        <div className={`status-pill${isRunning ? " is-running" : ""}`} aria-live="polite"><span className="status-dot" /> {statusLabel(run) ?? runStatus}</div>
       </header>
 
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">A second pair of eyes, and a next step</p>
-          <h1>Better feedback.<br />Less marking alone.</h1>
+          <h1>Better feedback.<br /><span className="hero-highlight">Less marking alone.</span></h1>
           <p>Review marks, see the evidence, and turn learning gaps into practice.</p>
         </div>
         <AgentScene ref={sceneRef} activeAgent={activeAgent} approved={run?.approved} isRunning={isRunning} />
@@ -80,7 +85,11 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
 
       <nav className="stage-nav" aria-label="Assessment stages">
         {stages.map((stage, index) => (
-          <div className="stage-item" key={stage}>
+          <div
+            className={`stage-item${index === currentStage ? " is-current" : index <= reachedStage ? " is-reached" : ""}`}
+            aria-current={index === currentStage ? "step" : undefined}
+            key={stage}
+          >
             <span className="stage-number">{String(index + 1).padStart(2, "0")}</span>
             <span>{stage}</span>
           </div>

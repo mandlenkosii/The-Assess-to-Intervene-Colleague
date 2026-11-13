@@ -177,3 +177,86 @@ footer { color: var(--muted); text-align: center; font-size: 11px; padding: 24px
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* ---------- Polish: hierarchy, motion and feedback (same palette) ---------- */
+:root { --ease: cubic-bezier(.2, .7, .2, 1); --shadow-lift: 0 10px 28px rgba(63, 29, 74, .14); }
+body {
+  background:
+    radial-gradient(1200px 420px at 50% -120px, rgba(249, 226, 125, .55), transparent 70%),
+    var(--butter-soft);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-feature-settings: "ss01", "cv11"; }
+.hero-copy h1 { font-weight: 700; }
+.hero-highlight {
+  background: linear-gradient(transparent 62%, rgba(255, 143, 199, .45) 62%, rgba(255, 143, 199, .45) 92%, transparent 92%);
+  padding: 0 .06em;
+}
+
+/* Topbar: status dot breathes while the colleague is working. */
+.topbar { position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 rgba(255, 255, 255, .06), 0 8px 24px rgba(38, 16, 46, .18); }
+.status-pill { transition: border-color .3s var(--ease), background .3s var(--ease); }
+.status-pill.is-running { border-color: rgba(249, 226, 125, .55); background: rgba(249, 226, 125, .08); }
+.status-pill.is-running .status-dot { animation: status-breathe 1.6s ease-in-out infinite; }
+@keyframes status-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 226, 125, .7); }
+  50% { box-shadow: 0 0 0 6px rgba(249, 226, 125, 0); }
+}
+
+/* 3D scene: a frame that reads as a window into the pipeline. */
+.agent-scene { box-shadow: inset 0 0 0 1px rgba(255, 246, 204, .08), 0 18px 40px rgba(38, 16, 46, .22); }
+.agent-scene-labels > span { transition: color .3s var(--ease), font-weight .3s; }
+.agent-scene-labels > span.is-active { text-shadow: 0 0 12px rgba(249, 226, 125, .6), 0 1px 3px #26102e; }
+
+/* Stage bar: the current stage is a butter pill; stages already reached are solid, the rest wait. */
+.stage-nav { gap: var(--space-1); }
+.stage-item {
+  padding: 7px 12px; border-radius: 999px; color: var(--muted);
+  transition: background .35s var(--ease), color .35s var(--ease), box-shadow .35s var(--ease);
+}
+.stage-item.is-reached { color: var(--aubergine); }
+.stage-item.is-reached .stage-number { color: var(--candy-deep); }
+.stage-item.is-current { background: var(--butter); color: var(--aubergine); box-shadow: 0 4px 14px rgba(249, 226, 125, .7); }
+.stage-item.is-current .stage-number { color: var(--aubergine); }
+.stage-item + .stage-item::before { content: ""; width: 18px; height: 1px; margin-right: 8px; background: var(--line); }
+
+/* Cards and panels: gentle entrance, clear hover. */
+.workspace-grid > * { animation: rise .55s var(--ease) both; }
+.workspace-grid > *:nth-child(2) { animation-delay: .07s; }
+.workspace-grid > *:nth-child(3) { animation-delay: .14s; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.card { transition: box-shadow .3s var(--ease), border-color .3s var(--ease), transform .3s var(--ease); }
+.learner-card:hover { border-color: rgba(63, 29, 74, .24); box-shadow: var(--shadow-lift); }
+
+/* Buttons and tabs: lift on hover, settle on press. */
+.btn-primary, .btn-secondary, .outbox-downloads a {
+  cursor: pointer;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease), border-color .18s var(--ease);
+}
+.btn-primary { box-shadow: 0 2px 0 rgba(63, 29, 74, .18); }
+.btn-primary:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(249, 226, 125, .9), 0 2px 0 rgba(63, 29, 74, .2); }
+.btn-primary:not(:disabled):active, .btn-secondary:not(:disabled):active { transform: translateY(0) scale(.98); }
+.btn-primary span { display: inline-block; transition: transform .18s var(--ease); }
+.btn-primary:not(:disabled):hover span { transform: translateX(3px); }
+.btn-secondary:not(:disabled):hover { background: rgba(249, 226, 125, .35); border-color: rgba(63, 29, 74, .3); }
+.btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
+.tab-button { transition: color .2s var(--ease), border-color .2s var(--ease); }
+.tab-button:hover { color: var(--aubergine); }
+
+/* Goal screen: the agents preview above the one goal. */
+.upload-card { animation: rise .6s var(--ease) both; box-shadow: var(--shadow-lift); }
+.upload-scene { margin: -12px -12px 28px; }
+.upload-scene .agent-scene { height: 190px; }
+.upload-title { letter-spacing: -.04em; }
+@media (max-width: 520px) {
+  .upload-card { padding: 20px; }
+  .upload-scene { margin: -4px -4px 20px; }
+  .upload-scene .agent-scene { height: 150px; }
+  .stage-item { padding: 6px 10px; }
+  .stage-item + .stage-item::before { width: 8px; margin-right: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-pill.is-running .status-dot { animation: none; box-shadow: 0 0 0 3px rgba(249, 226, 125, .35); }
+  .btn-primary:not(:disabled):hover, .btn-primary:not(:disabled):hover span { transform: none; }
+}
+.agent-scene-labels .approval-label { transform: translate(-100%, -50%); }

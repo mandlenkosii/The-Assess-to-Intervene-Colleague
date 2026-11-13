@@ -1,5 +1,6 @@
 // The only input screen: one goal + files (or the demo class). No chat, no step-by-step instructions.
 import { useEffect, useState } from "react";
+import AgentScene from "./AgentScene.jsx";
 
 export const DEFAULT_GOAL =
   "Mark this class set against the rubric, check the marks, and prepare catch-up plans for anyone who is struggling.";
@@ -67,6 +68,9 @@ export default function UploadGoal({ onStarted }) {
       </header>
 
       <section className="card upload-card">
+        <div className="upload-scene">
+          <AgentScene label="The seven agents that will plan, mark, check, correct and deliver for you" />
+        </div>
         <p className="eyebrow">Give your colleague one goal</p>
         <h1 className="upload-title">What should get done?</h1>
         <textarea className="goal-input" value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} aria-label="Goal" />
