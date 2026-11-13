@@ -6,6 +6,7 @@ import Outbox from "./components/Outbox.jsx";
 
 const stages = ["Goal", "Plan", "Act", "Check", "Correct", "Deliver"];
 const severityOrder = { needs_help: 0, watch: 1, on_track: 2 };
+const runningStatuses = new Set(["planning", "marking", "reviewing", "intervening", "delivering"]);
 const asArray = (value) => Array.isArray(value) ? value : Object.values(value ?? {});
 const agentLabels = {
   planner: "Planner",
@@ -54,6 +55,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   const lastAgent = events.at(-1)?.agent;
   const activeAgent = agentLabels[String(lastAgent ?? "").toLowerCase()] ?? lastAgent;
   const runStatus = run?.status ?? "Ready for a class";
+  const isRunning = runningStatuses.has(run?.status);
 
   return (
     <main className="app-shell">
@@ -68,7 +70,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
           <h1>Better feedback.<br />Less marking alone.</h1>
           <p>Review marks, see the evidence, and turn learning gaps into practice.</p>
         </div>
-        <AgentScene ref={sceneRef} activeAgent={activeAgent} approved={run?.approved} />
+        <AgentScene ref={sceneRef} activeAgent={activeAgent} approved={run?.approved} isRunning={isRunning} />
       </section>
 
       <nav className="stage-nav" aria-label="Assessment stages">
