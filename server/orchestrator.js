@@ -495,7 +495,9 @@ export async function deliverRun(runId, { store, llm, agents }) {
     const outbox = (agents.sendAll ? await step("Sending emails", () => agents.sendAll(run, { excluded: run.excluded, ctx })) : null) ?? [];
     run.outbox = outbox;
     const count = (s) => outbox.filter((m) => m.status === s).length;
-    const summary = `Delivered: ${count("sent")} sent, ${count("failed")} failed, ${count("skipped")} skipped`;
+    const summary = count("preview")
+      ? `Preview mode: ${count("preview")} emails drafted, none sent (no SMTP set), ${count("skipped")} skipped`
+      : `Delivered: ${count("sent")} sent, ${count("failed")} failed, ${count("skipped")} skipped`;
     emit({ stage: "deliver", agent: "delivery", kind: "log", message: summary, data: { outbox } });
     store.setStatus(runId, "done", { stage: "deliver", agent: "delivery", message: `Run complete. ${summary}` });
   } catch (err) {

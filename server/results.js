@@ -70,7 +70,7 @@ export function computeResults(run, expected) {
     },
     traps: { handled: traps.filter((x) => x.handled).length, total: traps.length, detail: traps },
     intervention: { struggling: struggling.length, tasks: tasks.length, tasks_checked_ok: tasks.filter((x) => x.status !== "needs_teacher").length, class_gaps: (run.classGaps ?? []).map((g) => g.criterion) },
-    delivery: { approved: Boolean(run.approved), sent: outbox.filter((m) => m.status === "sent").length, failed: outbox.filter((m) => m.status === "failed").length, skipped: outbox.filter((m) => m.status === "skipped").length },
+    delivery: { approved: Boolean(run.approved), sent: outbox.filter((m) => m.status === "sent").length, failed: outbox.filter((m) => m.status === "failed").length, skipped: outbox.filter((m) => m.status === "skipped").length, preview: outbox.filter((m) => m.status === "preview").length },
     timing_seconds: { to_approval: secs(ms(started, gate)), total: secs(ms(started, done ?? gate)) },
     model_calls: llmStats ? { live: llmStats.calls ?? null, from_cache: llmStats.cacheHits ?? null, fallbacks: llmStats.fallbacks ?? 0 } : null,
     collaboration: { agents: agents.size, handoffs },

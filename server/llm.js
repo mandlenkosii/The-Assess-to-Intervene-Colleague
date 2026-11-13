@@ -35,6 +35,8 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   async function callProvider(name, send, model, messages, temperature, maxTokens) {
     const body = { model, messages, temperature, max_tokens: maxTokens };
     if (name === "groq") body.response_format = { type: "json_object" };
+    // gpt-oss reasoning tokens count against Groq's free 8k tokens/minute; low effort keeps a mark to one call's worth.
+    if (/gpt-oss/.test(model)) body.reasoning_effort = "low";
     for (let attempt = 0; ; attempt++) {
       try {
         const t0 = Date.now();

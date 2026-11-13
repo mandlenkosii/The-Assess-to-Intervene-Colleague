@@ -24,11 +24,11 @@ export default function Outbox({ messages = [], runId, hasBrief = false, hasWork
             <div className="outbox-message">
               <strong>{message.to || message.learner_id || "Unknown recipient"}</strong>
               <span>{message.subject}</span>
-              {message.error && <small>{message.error}</small>}
+              {(message.error || message.reason) && <small>{message.error || message.reason}</small>}
               <details><summary>Preview email</summary><p>{plainText(message.html)}</p></details>
             </div>
             <span className={`badge badge-${message.status === "sent" ? "ok" : message.status === "failed" ? "needs-teacher" : "neutral"}`}>
-              {message.status}
+              {message.status === "preview" ? "preview · not sent" : message.status}
             </span>
           </li>
         ))}</ul>}

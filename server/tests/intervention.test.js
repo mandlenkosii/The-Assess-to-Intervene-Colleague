@@ -170,8 +170,8 @@ test("delivery preserves preview and reports unavailable credentials instead of 
     tasks: {}
   }, { env: {}, ctx: { emit: async (event) => events.push(event) } });
 
-  assert.equal(outbox[0].status, "failed");
-  assert.match(outbox[0].error, /SMTP_USER/);
+  assert.equal(outbox[0].status, "preview", "no SMTP = preview mode: drafted, never sent");
+  assert.match(outbox[0].reason, /not sent/);
   assert.match(outbox[0].html, /&lt;learner&gt;/);
   assert.equal(LogEvent.parse(events[0]).stage, "deliver");
   assert.equal(outbox[1].status, "skipped");
