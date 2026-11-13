@@ -56,6 +56,9 @@ export const Task = z.object({
   status: z.enum(ITEM_STATUS).default("ok"),
 });
 
+// Aliases for code written against the *Schema naming. Same objects, no behaviour change.
+export { Mark as MarkSchema, Review as ReviewSchema, Diagnosis as DiagnosisSchema, Task as TaskSchema };
+
 // Teacher brief wording (delivery agent). Numbers are computed in code; the model writes only this paragraph.
 export const BriefSummary = z.object({
   summary: z.string(),

@@ -9,3 +9,4 @@ runs/
 .cache/
 *.log
 .DS_Store
+.vite/
