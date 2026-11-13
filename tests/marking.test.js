@@ -37,6 +37,17 @@ test("demo dataset contains 30 uniquely identified scripts and the seven require
   }
 });
 
+test("teacher-marked anchors cover the five rubric criteria and have consistent totals", async () => {
+  const anchors = JSON.parse(await readFile(new URL("../data/anchors/anchors.json", import.meta.url), "utf8"));
+  assert.equal(Object.keys(anchors).length, 3);
+  for (const anchor of Object.values(anchors)) {
+    const text = await readFile(new URL(`../data/anchors/${anchor.file}`, import.meta.url), "utf8");
+    assert.ok(text.trim().split(/\s+/u).length >= 250);
+    assert.deepEqual(anchor.scores.map(({ criterion }) => criterion), rubric.criteria.map(({ name }) => name));
+    assert.equal(anchor.scores.reduce((sum, score) => sum + score.score, 0), anchor.total_pct);
+  }
+});
+
 test("whitespace and quote normalization allow equivalent verbatim evidence", () => {
   assert.equal(normalizeWhitespace("  one \n two  "), "one two");
   assert.equal(quoteExists("“the teacher-approved dictionary app”", "Use the teacher-approved dictionary app."), true);

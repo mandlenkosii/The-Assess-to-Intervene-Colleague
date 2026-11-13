@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "shared"
+    "shared",
+    "web"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build:ui": "npm --workspace @colleague/marking-ui run build"
   },
   "engines": {
     "node": ">=20"

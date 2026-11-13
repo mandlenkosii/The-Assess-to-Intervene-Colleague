@@ -1,0 +1,14 @@
+{
+  "name": "@colleague/marking-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/components/index.js --bundle --format=esm --outdir=dist --external:react"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
