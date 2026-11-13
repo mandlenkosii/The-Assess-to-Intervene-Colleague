@@ -1,12 +1,16 @@
 // The colleague's control loop.
 //   GOAL → PLAN → for each batch: MARK (parallel) → CHECK (Reviewer) → CORRECT (re-mark rejected / replan on drift)
-// Phase 2 ends after Loop 1. Loop 2 + the approval gate (phase 3) continue from `afterMarking`.
+//   → DIAGNOSE → for each struggling learner: BUILD task → CHECK it → rebuild on reject (Loop 2)
+//   → teacher brief → awaiting_approval (STOP). Nothing is sent until POST /approve calls deliverRun().
 import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import pLimit from "p-limit";
 import { env } from "./env.js";
 import { plan as defaultPlanner, recalibrate as defaultRecalibrate } from "./agents/planner.js";
 
 export const MAX_ATTEMPTS = 3;          // first mark + 2 re-marks, then "needs teacher"
+export const MAX_TASK_ATTEMPTS = 3;     // first build + 2 rebuilds, then "needs teacher"
 export const MAX_REPLANS = 1;           // run-level guard against recalibration loops
 export const RUN_TIMEOUT_MS = 12 * 60 * 1000;
 
@@ -24,7 +28,20 @@ export async function loadAgents() {
     recalibrate: defaultRecalibrate,
     markScript: await loadAgent("./agents/marker.js", "markScript"),
     reviewBatch: await loadAgent("./agents/calibrator.js", "reviewBatch"),
+    diagnose: await loadAgent("./agents/diagnostician.js", "diagnose"),
+    buildTask: await loadAgent("./agents/builder.js", "buildTask"),
+    checkTask: await loadAgent("./agents/checker.js", "checkTask"),
+    brief: await loadAgent("./agents/delivery.js", "brief"),
+    sendAll: await loadAgent("./agents/delivery.js", "sendAll"),
+    marksXlsx: await loadAgent("./agents/delivery.js", "marksXlsx"),
   };
+}
+
+// Caps concurrent model calls across every agent in a run (some agents fan out with Promise.all).
+// Separate from the orchestrator's work limiter, so nesting the two can't deadlock.
+function limitedLLM(llm, concurrency) {
+  const gate = pLimit(Math.max(1, concurrency));
+  return { ...llm, stats: llm.stats, json: (messages, opts) => gate(() => llm.json(messages, opts)) };
 }
 
 class Aborted extends Error {}
@@ -41,7 +58,7 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
   // After a timeout, late results from in-flight model calls must not touch the run.
   const emit = (event) => (aborted ? null : store.emit(runId, event));
   const status = (s, stage, agent, message) => (aborted ? null : store.setStatus(runId, s, { stage, agent, message }));
-  const ctx = { llm, emit, run };
+  const ctx = { llm: limitedLLM(llm, concurrency), emit, run };
   const limit = pLimit(Math.max(1, concurrency));
   const guard = () => { if (aborted) throw new Aborted(); };
 
@@ -224,12 +241,171 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
     const needsTeacher = marks.filter((m) => m.status === "needs_teacher").length + (run.unmarked?.length ?? 0);
     const summary = `Marking complete: ${marks.length} of ${Object.keys(run.scripts).length} marked, ${corrected} corrected, ${needsTeacher} need${needsTeacher === 1 ? "s" : ""} teacher, ${run.plan.replans ?? 0} replan${run.plan.replans === 1 ? "" : "s"}`;
     emit({ stage: "check", agent: "calibrator", kind: "log", message: summary, data: { marked: marks.length, corrected, needsTeacher, replans: run.plan.replans ?? 0 } });
-    // Phase 3 continues here: diagnose → build tasks → check them → awaiting_approval.
-    status("done", "check", "calibrator", summary);
+
+    if (!agents.diagnose) {
+      status("done", "check", "calibrator", summary);
+      return;
+    }
+    await intervene();
+  }
+
+  // DIAGNOSE → BUILD → CHECK → rebuild (Loop 2) → brief → awaiting_approval
+  async function intervene() {
+    status("intervening", "plan", "diagnostician", "Diagnosing every learner");
+    // Disputed marks aren't diagnosed: the teacher settles them first.
+    const settled = Object.values(run.marks).filter((m) => m.status !== "needs_teacher");
+    const { diagnoses = [], classGaps = [] } = await agents.diagnose({
+      marks: settled,
+      rubric: rubricForAgents(),
+      plan: { ...run.plan, borderline_band: run.plan.borderline },
+      learners: Object.values(run.learners),
+    }, ctx);
+    guard();
+    for (const d of diagnoses) run.diagnoses[d.learner_id] = d;
+    run.classGaps = classGaps;
+
+    const struggling = diagnoses.filter((d) => d.severity !== "on_track");
+    emit({
+      stage: "plan", agent: "diagnostician", kind: "log",
+      message: `${struggling.length} learner${struggling.length === 1 ? "" : "s"} need${struggling.length === 1 ? "s" : ""} a catch-up task (${struggling.filter((d) => d.severity === "needs_help").length} need help, ${struggling.filter((d) => d.severity === "watch").length} to watch)`,
+    });
+
+    if (agents.buildTask && agents.checkTask && struggling.length) {
+      status("intervening", "act", "builder", `Building ${struggling.length} catch-up task${struggling.length === 1 ? "" : "s"}`);
+      await Promise.all(struggling.map((d) => limit(() => taskLoop(d))));
+      guard();
+      const tasks = Object.values(run.tasks);
+      const rebuilt = tasks.filter((t) => t.attempt > 1).length;
+      const unresolved = tasks.filter((t) => t.status === "needs_teacher").length;
+      emit({
+        stage: "check", agent: "checker", kind: "log",
+        message: `${tasks.length} catch-up tasks built and checked; ${rebuilt} rebuilt after review, ${unresolved} need teacher`,
+        data: { tasks: tasks.length, rebuilt, needsTeacher: unresolved },
+      });
+    }
+
+    // Teacher brief (numbers computed in code by the delivery agent; the model only words the summary).
+    if (agents.brief) {
+      run.brief = await agents.brief({ run }, ctx);
+      guard();
+      emit({ stage: "deliver", agent: "delivery", kind: "log", message: "Teacher brief drafted", data: { brief: run.brief } });
+    }
+    status("awaiting_approval", "deliver", "teacher", "Waiting for your approval. Nothing has been sent.");
+  }
+
+  // Loop 2 for one learner: build → check → rebuild with the checker's reasons, until accepted or out of attempts.
+  async function taskLoop(diagnosis) {
+    const id = diagnosis.learner_id;
+    let feedback = "";
+    let previous = null;
+    for (let attempt = 1; attempt <= MAX_TASK_ATTEMPTS; attempt++) {
+      guard();
+      let task = null;
+      let reasons;
+      try {
+        task = await agents.buildTask({ diagnosis, rubric: rubricForAgents(), feedback, attempt }, ctx);
+        guard();
+        const review = await agents.checkTask({ task, diagnosis }, ctx);
+        guard();
+        if (review.verdict === "accept") {
+          run.tasks[id] = task;
+          if (previous) {
+            emit({
+              stage: "correct", agent: "checker", kind: "correction", ref: id,
+              message: `${id}: catch-up task rebuilt and accepted on attempt ${attempt} (${short(previous.reasons[0] ?? "checker feedback")})`,
+              data: { route: "builder", before: previous.gap, after: task.gap, reasons: previous.reasons, attempt },
+            });
+          }
+          return task;
+        }
+        reasons = review.reasons.length ? review.reasons : ["Checker rejected the task"];
+      } catch (err) {
+        if (err instanceof Aborted) throw err;
+        reasons = [err.message];
+      }
+
+      previous = { gap: task?.gap ?? "invalid task", reasons, task };
+      if (attempt < MAX_TASK_ATTEMPTS) {
+        emit({
+          stage: "correct", agent: "checker", kind: "correction", ref: id,
+          message: `${id}: task sent back to the Builder (${short(reasons[0])})`,
+          data: { route: "builder", before: previous.gap, after: null, reasons, attempt },
+        });
+        feedback = reasons.join("; ");
+      }
+    }
+    // Out of attempts: keep the last task if there is one, flagged for the teacher.
+    if (previous?.task) run.tasks[id] = { ...previous.task, status: "needs_teacher" };
+    emit({
+      stage: "correct", agent: "checker", kind: "correction", ref: id,
+      message: `${id}: no acceptable task after ${MAX_TASK_ATTEMPTS} attempts, flagged needs teacher`,
+      data: { route: "builder", status: "needs_teacher", before: previous?.gap ?? null, after: null, reasons: previous?.reasons ?? [], attempt: MAX_TASK_ATTEMPTS },
+    });
+    return null;
   }
 
   function rubricForAgents() {
     return { ...(typeof run.rubric === "object" ? run.rubric : {}), criteria: run.plan.criteria };
+  }
+}
+
+export class ApprovalError extends Error {
+  constructor(message, status = 409) { super(message); this.status = status; }
+}
+
+/**
+ * The human gate. Valid only while the run is awaiting approval; marks it approved and starts delivery.
+ * Returns once delivery has started (the client follows progress over SSE).
+ */
+export function approveRun(runId, { excluded = [] } = {}, deps) {
+  const { store } = deps;
+  const run = store.get(runId);
+  if (!run) throw new ApprovalError("Run not found", 404);
+  if (run.status !== "awaiting_approval") {
+    throw new ApprovalError(run.approved ? "This run has already been approved" : `Run is not waiting for approval (status: ${run.status})`);
+  }
+  const known = new Set(Object.keys(run.learners));
+  run.excluded = [...new Set(excluded.filter((id) => known.has(id)))];
+  run.approved = true;
+  store.emit(runId, {
+    stage: "deliver", agent: "teacher", kind: "log",
+    message: `Teacher approved${run.excluded.length ? `; ${run.excluded.length} learner${run.excluded.length === 1 ? "" : "s"} excluded (${run.excluded.join(", ")})` : ""}`,
+    data: { approved: true, excluded: run.excluded },
+  });
+  store.setStatus(runId, "delivering", { stage: "deliver", agent: "delivery", message: "Delivering approved results" });
+  const delivery = deliverRun(runId, deps);
+  return { run, delivery };
+}
+
+// DELIVER: brief.md + marks.xlsx into runs/<id>/, then one email per eligible learner. Never throws.
+export async function deliverRun(runId, { store, llm, agents }) {
+  const run = store.get(runId);
+  const emit = (event) => store.emit(runId, event);
+  try {
+    agents = { ...(await loadAgents()), ...(agents ?? {}) };
+    const ctx = { llm, emit, run };
+    const dir = store.runDir?.(runId);
+    if (dir) {
+      await mkdir(dir, { recursive: true });
+      if (run.brief) await writeFile(join(dir, "brief.md"), run.brief, "utf8");
+      if (agents.marksXlsx) {
+        await agents.marksXlsx(run, join(dir, "marks.xlsx"));
+        emit({ stage: "deliver", agent: "delivery", kind: "log", message: `marks.xlsx written (${Object.keys(run.marks).length} rows)` });
+      }
+    }
+
+    const outbox = agents.sendAll ? await agents.sendAll(run, { excluded: run.excluded, ctx }) : [];
+    run.outbox = outbox;
+    const count = (s) => outbox.filter((m) => m.status === s).length;
+    const summary = `Delivered: ${count("sent")} sent, ${count("failed")} failed, ${count("skipped")} skipped`;
+    emit({ stage: "deliver", agent: "delivery", kind: "log", message: summary, data: { outbox } });
+    store.setStatus(runId, "done", { stage: "deliver", agent: "delivery", message: `Run complete. ${summary}` });
+  } catch (err) {
+    console.error(`[orchestrator] delivery for ${runId} failed:`, err);
+    emit({ stage: "deliver", agent: "delivery", kind: "error", message: `Delivery stopped: ${err.message}` });
+    store.setStatus(runId, "error", { stage: "deliver", agent: "delivery", message: "Delivery stopped with an error" });
+  } finally {
+    await store.flush(runId);
   }
 }
 

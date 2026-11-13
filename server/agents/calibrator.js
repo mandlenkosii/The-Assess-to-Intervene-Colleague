@@ -148,13 +148,25 @@ export async function reviewBatch({
     Object.entries(marks).filter(([scriptId]) =>
       reviews.find((review) => review.script_id === scriptId)?.verdict === "accept")
   );
-  const sample = selectedForBlindRemark(codeCheckedMarks, borderlineBand);
-  for (const scriptId of sample) {
-    const blindMark = await blindRemark({
-      scriptId,
-      text: scripts[scriptId],
-      rubric
-    }, ctx);
+  const sample = [...selectedForBlindRemark(codeCheckedMarks, borderlineBand)];
+  const anchorList = checkAnchors ? Object.values(anchors) : [];
+  for (const anchor of anchorList) {
+    if (typeof anchor.text !== "string" || !anchor.text.trim()) {
+      throw new Error(`Anchor "${anchor.script_id || "unknown"}" is missing script text`);
+    }
+  }
+  const anchorIdOf = (anchor) => anchor.script_id || teacherMark(anchor).script_id;
+
+  // Performance: start every blind re-mark (sample + anchors) at once instead of one after another.
+  // The orchestrator caps concurrent model calls, so this stays inside rate limits.
+  // Results are then processed in the original order, so events and decisions are unchanged.
+  const [sampleResults, anchorResults] = await Promise.all([
+    Promise.all(sample.map((scriptId) => blindRemark({ scriptId, text: scripts[scriptId], rubric }, ctx))),
+    Promise.all(anchorList.map((anchor) => blindRemark({ scriptId: anchorIdOf(anchor), text: anchor.text, rubric }, ctx)))
+  ]);
+
+  for (const [index, scriptId] of sample.entries()) {
+    const blindMark = sampleResults[index];
     blindMarks[scriptId] = blindMark;
     const review = reviews.find((candidate) => candidate.script_id === scriptId);
     if (review?.verdict === "reject") {
@@ -179,16 +191,9 @@ export async function reviewBatch({
   const driftReasons = [];
   const anchorTotals = [];
   if (checkAnchors) {
-    for (const anchor of Object.values(anchors)) {
-      if (typeof anchor.text !== "string" || !anchor.text.trim()) {
-        throw new Error(`Anchor "${anchor.script_id || "unknown"}" is missing script text`);
-      }
-      const anchorId = anchor.script_id || teacherMark(anchor).script_id;
-      const blind = await blindRemark({
-        scriptId: anchorId,
-        text: anchor.text,
-        rubric
-      }, ctx);
+    for (const [index, anchor] of anchorList.entries()) {
+      const anchorId = anchorIdOf(anchor);
+      const blind = anchorResults[index];
       const expected = teacherTotal(anchor);
       anchorTotals.push(expected);
       if (Math.abs(blind.total_pct - expected) > 10) {

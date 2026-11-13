@@ -6,13 +6,22 @@ import { env, ROOT } from "./env.js";
 import { createLLM } from "./llm.js";
 import { createRunStore } from "./runStore.js";
 import { runsRouter } from "./routes/runs.js";
+import { createFakeLLM } from "./scripts/fakeLLM.js";
 
-export function createApp({ store = createRunStore(), llm = createLLM({ log: console.log }), agents } = {}) {
+function defaultLLM() {
+  if (env.FAKE_LLM) {
+    console.log(`llm: FAKE_LLM=1, using the deterministic fake model (${env.FAKE_LLM_LATENCY_MS}ms per call)`);
+    return createFakeLLM({ latencyMs: env.FAKE_LLM_LATENCY_MS });
+  }
+  return createLLM({ log: console.log });
+}
+
+export function createApp({ store = createRunStore(), llm = defaultLLM(), agents } = {}) {
   const app = express();
   app.use(express.json({ limit: "5mb" }));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, status: "ok", groq: Boolean(env.GROQ_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), llm: llm.stats ?? null });
+    res.json({ ok: true, status: "ok", fake: env.FAKE_LLM, groq: Boolean(env.GROQ_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), llm: llm.stats ?? null });
   });
   app.use("/api", runsRouter({ store, llm, agents }));
 

@@ -4,10 +4,11 @@
 //   GET  /api/runs/latest   → snapshot of the most recent run
 //   GET  /api/runs/:id      → snapshot (no script texts)
 //   GET  /api/runs/:id/events  SSE: replays the log, then streams live events
+//   POST /api/runs/:id/approve  { approved: true, excluded?: [learnerIds] } → 202, starts delivery
 import express from "express";
 import multer from "multer";
 import { InputError, loadDemoInputs, uploadInputs } from "../inputs.js";
-import { runColleague } from "../orchestrator.js";
+import { approveRun, runColleague } from "../orchestrator.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 80 } });
 
@@ -30,6 +31,16 @@ export function runsRouter({ store, llm, agents }) {
   router.post("/runs", upload.any(), async (req, res, next) => {
     try {
       res.status(201).json({ runId: start(await uploadInputs({ goal: req.body?.goal, files: req.files ?? [] })) });
+    } catch (err) { next(err); }
+  });
+
+  // The human gate: nothing is sent before this.
+  router.post("/runs/:id/approve", (req, res, next) => {
+    try {
+      if (req.body?.approved === false) return res.status(400).json({ error: "Send { approved: true } to approve" });
+      const excluded = Array.isArray(req.body?.excluded) ? req.body.excluded.map(String) : [];
+      const { run } = approveRun(req.params.id, { excluded }, { store, llm, agents });
+      res.status(202).json({ runId: run.id, status: run.status, excluded: run.excluded });
     } catch (err) { next(err); }
   });
 

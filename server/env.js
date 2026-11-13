@@ -15,4 +15,7 @@ export const env = {
   CONCURRENCY: Number(process.env.CONCURRENCY || 4),
   LLM_TIMEOUT_MS: Number(process.env.LLM_TIMEOUT_MS || 60000),
   NO_CACHE: process.env.NO_CACHE === "1",
+  // FAKE_LLM=1 runs the app on the deterministic fake model (no keys, no rate limits) for UI work and rehearsals.
+  FAKE_LLM: process.env.FAKE_LLM === "1",
+  FAKE_LLM_LATENCY_MS: Number(process.env.FAKE_LLM_LATENCY_MS || 250),
 };
