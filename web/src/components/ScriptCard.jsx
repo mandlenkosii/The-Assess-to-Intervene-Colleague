@@ -25,7 +25,7 @@ function EvidenceText({ text, ranges, corrected }) {
   return <p>{parts}</p>;
 }
 
-export function ScriptCard({ mark, scriptText, learnerName, corrected = false }) {
+export function ScriptCard({ mark, scriptText, learnerName, corrected = false, showFeedback = true }) {
   const [showScript, setShowScript] = useState(false);
   const scores = mark?.scores || [];
   const evidenceQuotes = useMemo(() => scores.map(({ evidence }) => evidence), [scores]);
@@ -39,7 +39,7 @@ export function ScriptCard({ mark, scriptText, learnerName, corrected = false })
   }
 
   return (
-    <article className="marking-panel script-card" aria-label={`Mark for ${learnerName || mark.script_id}`}>
+    <section className="marking-panel script-card" aria-label={`Mark for ${learnerName || mark.script_id}`}>
       <header className="script-card__header">
         <div>
           <h2>{learnerName || mark.script_id}</h2>
@@ -75,10 +75,12 @@ export function ScriptCard({ mark, scriptText, learnerName, corrected = false })
           <EvidenceText text={scriptText} ranges={evidenceRanges} corrected={corrected} />
         </div>
       )}
-      <details className="script-feedback">
-        <summary>Learner feedback</summary>
-        <p>{mark.feedback}</p>
-      </details>
-    </article>
+      {showFeedback && (
+        <details className="script-feedback">
+          <summary>Learner feedback</summary>
+          <p>{mark.feedback}</p>
+        </details>
+      )}
+    </section>
   );
 }

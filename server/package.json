@@ -1,0 +1,25 @@
+{
+  "name": "@colleague/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "ping": "node scripts/ping.js",
+    "sample-events": "node scripts/make-sample-events.js",
+    "try:intervention": "node scripts/try-intervention.js"
+  },
+  "dependencies": {
+    "@colleague/shared": "*",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.0",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "mammoth": "^1.9.0",
+    "nodemailer": "^10.5.0",
+    "openai": "^4.77.0",
+    "pdf-parse": "^1.1.1",
+    "zod": "^4.6.7"
+  }
+}

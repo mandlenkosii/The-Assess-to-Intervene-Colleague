@@ -4,7 +4,7 @@ import "./marking.css";
 export function CorrectionLog({ events = [] }) {
   const rows = correctionRows(events);
   return (
-    <section className="marking-panel correction-panel" aria-labelledby="correction-title">
+    <section className="marking-panel marking-correction-panel" aria-labelledby="correction-title">
       <header className="marking-panel__header">
         <div>
           <h2 id="correction-title">Correction log</h2>
@@ -15,7 +15,7 @@ export function CorrectionLog({ events = [] }) {
       {rows.length === 0 ? (
         <p className="marking-empty">No corrections yet.</p>
       ) : (
-        <ol className="correction-list">
+        <ol className="marking-correction-list">
           {rows.map((row) => (
             <li className="correction-row" key={row.key}>
               <div className="correction-row__top">

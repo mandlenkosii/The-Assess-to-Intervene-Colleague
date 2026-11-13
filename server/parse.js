@@ -51,7 +51,8 @@ export function loadLearners(csvText) {
         throw new Error(`Learner row ${index + 2} is missing "${column}"`);
       }
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(row.email)) {
+    const isInboxPlaceholder = /^TEAM_INBOX_[1-3]$/u.test(row.email);
+    if (!isInboxPlaceholder && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(row.email)) {
       throw new Error(`Learner row ${index + 2} has an invalid email address`);
     }
     return {

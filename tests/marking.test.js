@@ -26,7 +26,12 @@ test("demo dataset contains 30 uniquely identified scripts and the seven require
     ]
   );
   const csv = await readFile(new URL("../data/learners.csv", import.meta.url), "utf8");
-  assert.equal(loadLearners(csv).length, 30);
+  const learners = loadLearners(csv);
+  assert.equal(learners.length, 30);
+  assert.deepEqual(
+    demoScripts.map(({ script_id }) => script_id).sort(),
+    learners.map(({ learner_id }) => learner_id).sort()
+  );
   const expected = JSON.parse(await readFile(new URL("../data/expected.json", import.meta.url), "utf8"));
   assert.equal(expected.scripts.length, 30);
   assert.equal(expected.scripts.filter(({ trap }) => trap).length, 7);
