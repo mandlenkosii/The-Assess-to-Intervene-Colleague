@@ -39,7 +39,7 @@ async function once(label) {
   return { run, ms, hitRate };
 }
 
-console.log(`warm: ${fake ? "fake model (rehearsal)" : `Groq ${env.GROQ_MODEL_LARGE}`} · concurrency ${env.CONCURRENCY}`);
+console.log(`warm: ${fake ? "fake model (rehearsal)" : (env.LLM_PRIMARY === "groq" ? `Groq ${env.GROQ_MODEL_LARGE}` : `Gemini ${env.GEMINI_MODEL}`)} · concurrency ${env.CONCURRENCY}`);
 const first = await once("run 1 (fills cache)");
 if (first.run.status === "error") { console.error("warm: run 1 failed; fix that before the demo."); process.exit(1); }
 const second = await once("run 2 (from cache)");

@@ -25,9 +25,14 @@ function openAITransport() {
  * @param {{ log?: Function, transport?: {groq?: Function, gemini?: Function}, cacheDir?: string, retryBaseMs?: number }} [opts]
  *   transport/cacheDir/retryBaseMs are for tests and rehearsals; the app uses the defaults.
  */
-export function createLLM({ log = () => {}, transport = openAITransport(), cacheDir = CACHE_DIR, retryBaseMs = 1000, label } = {}) {
+export function createLLM({ log = () => {}, transport = openAITransport(), cacheDir = CACHE_DIR, retryBaseMs = 1000, label, primary = env.LLM_PRIMARY } = {}) {
   const groq = transport.groq ?? null;
   const gemini = transport.gemini ?? null;
+  // LLM_PRIMARY picks who answers first; the other provider is the fallback.
+  const order = primary === "groq" ? ["groq", "gemini"] : ["gemini", "groq"];
+  const send = { groq, gemini };
+  const modelFor = (name, tier) => name === "gemini" ? env.GEMINI_MODEL : tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
+  const lead = order.find((name) => send[name]) ?? order[0];
   if (!groq && !gemini) log("llm: no GROQ_API_KEY or GEMINI_API_KEY set; only cached responses will work");
 
   const stats = { calls: 0, cacheHits: 0, fallbacks: 0, repairs: 0, retries429: 0, ms: 0 };
@@ -58,21 +63,20 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   }
 
   async function complete(messages, tier, temperature, maxTokens) {
-    const groqModel = tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
-    let groqErr;
-    if (groq) {
+    let lastErr;
+    let tried = 0;
+    for (const name of order) {
+      if (!send[name]) continue;
+      if (tried++) stats.fallbacks++;
       try {
-        return await callProvider("groq", groq, groqModel, messages, temperature, maxTokens);
+        return await callProvider(name, send[name], modelFor(name, tier), messages, temperature, maxTokens);
       } catch (err) {
-        groqErr = err;
-        log(`llm: groq failed (${err?.status ?? err?.message}); falling back to gemini`);
+        lastErr = err;
+        const next = order.find((n) => n !== name && send[n]);
+        log(`llm: ${name} failed (${err?.status ?? err?.message})${next && tried === 1 ? `; falling back to ${next}` : ""}`);
       }
     }
-    if (gemini) {
-      stats.fallbacks += groq ? 1 : 0;
-      return await callProvider("gemini", gemini, env.GEMINI_MODEL, messages, temperature, maxTokens);
-    }
-    throw groqErr ?? new Error("No model provider configured (set GROQ_API_KEY or GEMINI_API_KEY in .env)");
+    throw lastErr ?? new Error("No model provider configured (set GROQ_API_KEY or GEMINI_API_KEY in .env)");
   }
 
   /**
@@ -84,7 +88,7 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
     if (!schema) throw new Error("llm.json needs a Zod schema");
     const msgs = withJsonInstruction(messages);
     // Key on the *primary* model so a Gemini-fallback answer is reused on the next run too.
-    const model = tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
+    const model = modelFor(lead, tier);
     const key = createHash("sha256").update(JSON.stringify({ model, msgs, temperature })).digest("hex");
     const file = join(cacheDir, `${key}.json`);
 
@@ -121,7 +125,7 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   }
 
   // label records which model produced a run, so rehearsal numbers are never mistaken for real ones.
-  label ??= transport.groq ? `groq:${env.GROQ_MODEL_LARGE}` : transport.gemini ? `gemini:${env.GEMINI_MODEL}` : "none";
+  label ??= send[lead] ? `${lead}:${modelFor(lead, "large")}` : "none";
   return { json, stats, label };
 }
 

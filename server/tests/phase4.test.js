@@ -50,7 +50,7 @@ test("llm: 429s are retried with backoff, then Gemini takes over", async () => {
   let groqCalls = 0;
   const rateLimited = Object.assign(new Error("rate limited"), { status: 429, headers: {} });
   const llm = createLLM({
-    cacheDir: dir, retryBaseMs: 1,
+    cacheDir: dir, retryBaseMs: 1, primary: "groq",
     transport: { groq: async () => { groqCalls++; throw rateLimited; }, gemini: async (body) => { assert.equal(body.response_format, undefined); return '{"ok":true}'; } },
   });
   assert.deepEqual(await llm.json(msgs, { schema: Pong }), { ok: true });
@@ -63,11 +63,28 @@ test("llm: 429s are retried with backoff, then Gemini takes over", async () => {
 test("llm: a non-retryable error goes straight to the fallback; no provider → clear error", async () => {
   const dir = tmp();
   let groqCalls = 0;
-  const llm = createLLM({ cacheDir: dir, retryBaseMs: 1, transport: { groq: async () => { groqCalls++; throw Object.assign(new Error("bad request"), { status: 400 }); }, gemini: async () => '{"ok":true}' } });
+  const llm = createLLM({ cacheDir: dir, retryBaseMs: 1, primary: "groq", transport: { groq: async () => { groqCalls++; throw Object.assign(new Error("bad request"), { status: 400 }); }, gemini: async () => '{"ok":true}' } });
   await llm.json(msgs, { schema: Pong, cache: false });
   assert.equal(groqCalls, 1);
   const none = createLLM({ cacheDir: dir, transport: {} });
   await assert.rejects(none.json([{ role: "user", content: "new" }], { schema: Pong }), /No model provider configured/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("llm: Gemini answers first by default and Groq is the fallback", async () => {
+  const dir = tmp();
+  const calls = [];
+  const llm = createLLM({
+    cacheDir: dir, retryBaseMs: 1, primary: "gemini",
+    transport: {
+      gemini: async () => { calls.push("gemini"); throw Object.assign(new Error("down"), { status: 400 }); },
+      groq: async () => { calls.push("groq"); return '{"ok":true}'; },
+    },
+  });
+  assert.match(llm.label, /^gemini:/);
+  assert.deepEqual(await llm.json(msgs, { schema: Pong }), { ok: true });
+  assert.deepEqual(calls, ["gemini", "groq"]);
+  assert.equal(llm.stats.fallbacks, 1);
   rmSync(dir, { recursive: true, force: true });
 });
 

@@ -11,7 +11,9 @@ export const env = {
   GROQ_MODEL_LARGE: process.env.GROQ_MODEL_LARGE || "openai/gpt-oss-120b",
   GROQ_MODEL_SMALL: process.env.GROQ_MODEL_SMALL || "openai/gpt-oss-20b",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
-  GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-3.5-flash",
+  GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+  // Which provider answers first ("gemini" or "groq"); the other is the fallback.
+  LLM_PRIMARY: (process.env.LLM_PRIMARY || "gemini").toLowerCase() === "groq" ? "groq" : "gemini",
   CONCURRENCY: Number(process.env.CONCURRENCY || 4),
   LLM_TIMEOUT_MS: Number(process.env.LLM_TIMEOUT_MS || 60000),
   NO_CACHE: process.env.NO_CACHE === "1",
