@@ -4,7 +4,10 @@ import { z } from "zod";
 
 export const STAGES = ["goal", "plan", "act", "check", "correct", "deliver"];
 export const AGENTS = ["planner", "marker", "calibrator", "diagnostician", "builder", "checker", "delivery", "teacher"];
-export const KINDS = ["stage", "log", "mark", "review", "correction", "diagnosis", "task", "status", "error"];
+export const KINDS = [
+  "stage", "log", "mark", "review", "correction", "diagnosis", "diagnoses",
+  "task", "task_review", "email", "status", "error",
+];
 export const RUN_STATUS = [
   "planning", "marking", "reviewing", "intervening",
   "awaiting_approval", "delivering", "done", "error",
@@ -47,10 +50,15 @@ export const Task = z.object({
   learner_id: z.string(),
   gap: z.string(),
   instructions: z.string(),
-  questions: z.array(z.string()).min(1),
-  answer_key: z.array(z.string()).min(1),
+  questions: z.array(z.string()),          // 3–5 enforced by the Checker's code check, not here
+  answer_key: z.array(z.string()),
   attempt: z.number().int().min(1).default(1),
   status: z.enum(ITEM_STATUS).default("ok"),
+});
+
+// Teacher brief wording (delivery agent). Numbers are computed in code; the model writes only this paragraph.
+export const BriefSummary = z.object({
+  summary: z.string(),
 });
 
 // One SSE event / one line in runs/<id>/log.jsonl. Drives trace, correction log, cards and 3D scene.
@@ -61,7 +69,7 @@ export const LogEvent = z.object({
   kind: z.enum(KINDS),
   ref: z.string().optional(),             // "L14" (script/learner) or "batch_2"
   message: z.string(),                    // e.g. "L14: argument 7 → 5, no evidence quoted"
-  data: z.record(z.any()).optional(),     // {before, after, reasons, mark, task, status, ...}
+  data: z.record(z.string(), z.unknown()).optional(),     // {before, after, reasons, mark, task, status, ...}
 });
 
 export const Plan = z.object({
@@ -84,15 +92,15 @@ export const RunState = z.object({
   id: z.string(),
   goal: z.string(),
   status: z.enum(RUN_STATUS).default("planning"),
-  rubric: z.record(z.any()),
-  anchors: z.record(z.object({ text: z.string(), mark: Mark })).default({}),
-  scripts: z.record(z.string()).default({}),          // script_id -> text
-  learners: z.record(Learner).default({}),
+  rubric: z.record(z.string(), z.unknown()),
+  anchors: z.record(z.string(), z.object({ text: z.string(), mark: Mark })).default({}),
+  scripts: z.record(z.string(), z.string()).default({}),          // script_id -> text
+  learners: z.record(z.string(), Learner).default({}),
   plan: Plan.nullable().default(null),
-  marks: z.record(Mark).default({}),
-  reviews: z.record(Review).default({}),
-  diagnoses: z.record(Diagnosis).default({}),
-  tasks: z.record(Task).default({}),
+  marks: z.record(z.string(), Mark).default({}),
+  reviews: z.record(z.string(), Review).default({}),
+  diagnoses: z.record(z.string(), Diagnosis).default({}),
+  tasks: z.record(z.string(), Task).default({}),
   brief: z.string().nullable().default(null),
   approved: z.boolean().default(false),
   excluded: z.array(z.string()).default([]),
@@ -106,6 +114,7 @@ export const promptHints = {
   Review: `{"script_id": string, "verdict": "accept"|"reject", "reasons": [string], "blind_total_pct": number|null}`,
   Diagnosis: `{"learner_id": string, "root_gap": string, "severity": "on_track"|"watch"|"needs_help", "evidence": [string]}`,
   Task: `{"learner_id": string, "gap": string, "instructions": "under 120 words", "questions": [string] (3-5), "answer_key": [string] (one per question)}`,
+  BriefSummary: `{"summary": "one short, teacher-facing paragraph based only on the computed brief facts"}`,
 };
 
 // Helper so every emitter builds events the same way.

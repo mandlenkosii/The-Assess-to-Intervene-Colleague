@@ -1,15 +1,29 @@
 {
-  "name": "colleague-zero",
+  "name": "assess-to-intervene-colleague",
   "private": true,
   "type": "module",
-  "workspaces": ["shared", "server", "web"],
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
   "engines": { "node": ">=20" },
   "scripts": {
-    "dev": "concurrently -k -n server,web -c magenta,yellow \"npm run dev -w server\" \"npm run dev -w web\"",
-    "ping": "npm run ping -w server",
-    "sample-events": "npm run sample-events -w server",
-    "build": "npm run build -w web",
-    "start": "npm run start -w server"
+    "dev": "concurrently -k -n server,web -c magenta,yellow \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "ping": "npm --workspace server run ping",
+    "sample-events": "npm --workspace server run sample-events",
+    "build": "npm --workspace web run build",
+    "start": "npm --workspace server run start",
+    "test": "node --test server/tests/*.test.js"
   },
-  "devDependencies": { "concurrently": "^9.1.0" }
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  }
 }
