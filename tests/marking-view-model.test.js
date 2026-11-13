@@ -53,6 +53,14 @@ test("correction rows expose score changes, reasons, attempts, and unresolved st
   assert.equal(rows[1].needsTeacher, true);
 });
 
+test("correction rows have unique keys for different correction agents on the same attempt", () => {
+  const rows = correctionRows([
+    { t: "2026-01-01T10:00:00Z", stage: "correct", agent: "marker", kind: "correction", ref: "L08", data: { attempt: 2 } },
+    { t: "2026-01-01T10:01:00Z", stage: "correct", agent: "checker", kind: "correction", ref: "L08", data: { attempt: 2 } }
+  ]);
+  assert.equal(new Set(rows.map(({ key }) => key)).size, rows.length);
+});
+
 test("evidence highlighting uses the same normalized matching as the code check", () => {
   const script = "The teacher-approved\n dictionary app can help.";
   const quote = "“THE TEACHER-APPROVED dictionary app”";

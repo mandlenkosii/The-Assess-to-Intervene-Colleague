@@ -152,6 +152,25 @@ footer { color: var(--muted); text-align: center; font-size: 11px; padding: 24px
   .stage-nav { gap: var(--space-2); }
 }
 
+@media (min-width: 1100px) and (min-height: 680px) and (max-height: 740px) {
+  .workspace-grid {
+    height: calc(100vh - 363px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .workspace-grid > *, .marking-panel, .main-panel { min-height: 0; height: 100%; }
+  .trace-panel, .marking-correction-panel, .main-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .trace-scroll, .marking-correction-list {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .trace-scroll { max-height: none; }
+  .marking-correction-list { overflow: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

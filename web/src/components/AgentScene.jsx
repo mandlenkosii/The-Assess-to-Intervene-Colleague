@@ -137,21 +137,21 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseR
               new THREE.MeshStandardMaterial({ color: "#FF8FC7", emissive: "#C2186B" })
             );
             scene.add(pulseMesh);
-            render();
+            apiRef.current?.render();
             pulseTimer = window.setTimeout(() => {
               if (!pulseMesh) return;
               scene.remove(pulseMesh);
               pulseMesh.geometry.dispose();
               pulseMesh.material.dispose();
               pulseMesh = undefined;
-              render();
+              apiRef.current?.render();
             }, 900);
           },
           setApproved(value) {
             approvalRing.material.color.set(value ? "#F9E27D" : "#FFF6CC");
             approvalRing.material.emissive.set(value ? "#F9E27D" : "#000000");
             if (value) this.pulseLoop("Checker", "Delivery");
-            else render();
+            else apiRef.current?.render();
           },
           render() {
             if (frameId == null && !disposed && !document.hidden) {
