@@ -15,8 +15,9 @@
     "ping": "npm --workspace server run ping",
     "sample-events": "npm --workspace server run sample-events",
     "build": "npm --workspace web run build",
+    "build:ui": "npm --workspace web run build",
     "start": "npm --workspace server run start",
-    "test": "node --test server/tests/*.test.js"
+    "test": "node --test"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
