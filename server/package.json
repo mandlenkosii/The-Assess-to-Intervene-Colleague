@@ -10,7 +10,8 @@
     "sample-events": "node scripts/make-sample-events.js",
     "try:intervention": "node scripts/try-intervention.js",
     "smoke": "node scripts/smoke.js",
-    "warm": "node scripts/warm.js"
+    "warm": "node scripts/warm.js",
+    "results": "node scripts/results.js"
   },
   "dependencies": {
     "@colleague/shared": "*",

@@ -18,4 +18,6 @@ export const env = {
   // FAKE_LLM=1 runs the app on the deterministic fake model (no keys, no rate limits) for UI work and rehearsals.
   FAKE_LLM: process.env.FAKE_LLM === "1",
   FAKE_LLM_LATENCY_MS: Number(process.env.FAKE_LLM_LATENCY_MS || 250),
+  // DEMO_PACE_MS=300 slows cache hits so a cached demo run unfolds at a watchable speed (0 = off).
+  DEMO_PACE_MS: Number(process.env.DEMO_PACE_MS || 0),
 };

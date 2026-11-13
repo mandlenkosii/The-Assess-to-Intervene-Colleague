@@ -21,7 +21,8 @@
     "start": "npm --workspace server run start",
     "test": "node --test",
     "smoke": "npm --workspace server run smoke --",
-    "warm": "npm --workspace server run warm --"
+    "warm": "npm --workspace server run warm --",
+    "results": "npm --workspace server run results --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
