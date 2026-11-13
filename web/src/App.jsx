@@ -26,6 +26,8 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   const sceneRef = useRef(null);
   const previousEventCount = useRef(0);
   const events = asArray(run?.log);
+  const hasBrief = events.some((event) => event.data?.artifact === "brief.md");
+  const hasWorkbook = events.some((event) => event.data?.artifact === "marks.xlsx");
   const diagnoses = asArray(run?.diagnoses);
   const marks = asArray(run?.marks);
   const tasks = asArray(run?.tasks);
@@ -130,7 +132,14 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
                 </div>
           )}
           {activeTab === "Approval" && <ApprovePanel run={run?.status === "awaiting_approval" ? run : null} onApprove={onApprove} busy={busy} />}
-          {activeTab === "Outbox" && <Outbox messages={run?.outbox ?? []} />}
+          {activeTab === "Outbox" && (
+            <Outbox
+              messages={run?.outbox ?? []}
+              runId={run?.id}
+              hasBrief={hasBrief}
+              hasWorkbook={hasWorkbook}
+            />
+          )}
         </section>
 
         <CorrectionLog events={events} />

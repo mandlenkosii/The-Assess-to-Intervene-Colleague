@@ -109,6 +109,8 @@ test("brief and workbook routes download delivered artifacts and report missing 
   assert.equal(ready.status, "awaiting_approval");
   await approveRun(ready.id, {}, deps).delivery;
   assert.equal(ready.status, "done");
+  assert.ok(ready.log.some((event) => event.data?.artifact === "brief.md"));
+  assert.ok(ready.log.some((event) => event.data?.artifact === "marks.xlsx"));
 
   const { app } = createApp(deps);
   const server = app.listen(0);
