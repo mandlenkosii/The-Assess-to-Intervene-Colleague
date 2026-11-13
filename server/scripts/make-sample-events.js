@@ -34,7 +34,7 @@ ev("goal", "teacher", "log", "Goal: Mark this class set against the rubric, chec
 ev("plan", "planner", "stage", "Planning the work");
 ev("plan", "planner", "log", "Rubric parsed: 5 criteria (argument, evidence, structure, language, audience), 20 marks each");
 ev("plan", "planner", "log", "30 scripts split into 6 batches of 5; pass mark 50%, borderline band 40–55%", {
-  data: { plan: { batches: 6, pass_mark: 50, borderline: [40, 55] } },
+  data: { plan: { batches: 6, scripts: 30, pass_mark: 50, borderline: [40, 55] } },
 });
 ev("plan", "planner", "log", "3 anchor scripts loaded (weak 35%, middle 58%, strong 82%) for calibration");
 

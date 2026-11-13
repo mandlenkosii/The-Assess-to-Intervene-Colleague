@@ -7,6 +7,7 @@ export function emptyRun(id = null) {
     id, status: "planning", log: [], marks: {}, reviews: {}, corrections: [],
     diagnoses: {}, classGaps: [], tasks: {}, learners: {}, outbox: [],
     approved: false, activeAgent: null, plan: null,
+    progress: { marked: 0, total: null, corrected: 0, needsTeacher: 0 },
   };
 }
 
@@ -57,7 +58,42 @@ export function applyEvents(run, events) {
     diagnoses: { ...run.diagnoses }, tasks: { ...run.tasks }, outbox: [...run.outbox],
   };
   for (const ev of events) applyEvent(next, ev);
+  next.progress = progressOf(next);
   return next;
+}
+
+// Numbers for the status pill: how far marking has got and how often the colleague corrected itself.
+export function progressOf(run) {
+  const corrected = new Set();
+  const needsTeacher = new Set();
+  for (const ev of run.corrections) {
+    const d = ev.data ?? {};
+    if (!ev.ref) continue;
+    if (d.status === "needs_teacher") needsTeacher.add(ev.ref);
+    else if (typeof d.after === "number" && d.after !== d.before) corrected.add(ev.ref);
+  }
+  return {
+    marked: Object.keys(run.marks).length,
+    total: run.plan?.scripts ?? null,
+    corrected: corrected.size,
+    needsTeacher: needsTeacher.size,
+  };
+}
+
+const STATUS_LABELS = {
+  planning: "Planning", marking: "Marking", reviewing: "Reviewing", intervening: "Building catch-up plans",
+  awaiting_approval: "Waiting for your approval", delivering: "Delivering", done: "Done", error: "Stopped",
+};
+
+export function statusLabel(run) {
+  if (!run) return null;
+  const base = STATUS_LABELS[run.status] ?? run.status;
+  const p = run.progress;
+  if (!p || !p.marked) return base;
+  const parts = [base, p.total ? `${p.marked}/${p.total} marked` : `${p.marked} marked`];
+  if (p.corrected) parts.push(`${p.corrected} corrected`);
+  if (p.needsTeacher) parts.push(`${p.needsTeacher} need teacher`);
+  return parts.join(" · ");
 }
 
 /**

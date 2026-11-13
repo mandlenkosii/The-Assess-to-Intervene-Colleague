@@ -35,6 +35,27 @@ export async function plan({ goal, rubric, scriptIds, anchorCount = 0 }, ctx) {
   return result;
 }
 
+/**
+ * Called when the Reviewer reports drift (anchors disagree with the teacher, or marks cluster in the middle).
+ * Returns a new Plan that tells the Marker to calibrate against the teacher-marked anchors.
+ */
+export function recalibrate(current, drift, ctx) {
+  const next = Plan.parse({
+    ...current,
+    anchors_as_examples: true,
+    replans: (current.replans ?? 0) + 1,
+    calibration_note:
+      `Calibration: ${drift.reason}. Compare each script with the teacher-marked anchor scripts and their marks, ` +
+      `and use the full mark range: weak work must score low and strong work high.`,
+  });
+  ctx.emit?.({
+    stage: "correct", agent: "planner", kind: "correction",
+    message: `Replan: marks drifted from the teacher's anchors (${drift.reason.split("; ").length} signal${drift.reason.split("; ").length === 1 ? "" : "s"}). Anchors added as worked examples; re-marking the batch.`,
+    data: { replan: true, route: "planner", reasons: drift.reason.split("; ").filter(Boolean) },
+  });
+  return next;
+}
+
 async function normaliseCriteria(rubric, ctx, emit) {
   // Fast path: rubric.json already in our shape, so no model call needed.
   const direct = NormalisedCriteria.safeParse({
