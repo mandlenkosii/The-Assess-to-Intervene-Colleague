@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
+  "installCommand": "npm install && npm install --no-save @rollup/rollup-linux-x64-gnu@4.68.3 @esbuild/linux-x64@0.25.12",
   "buildCommand": "npm run build",
   "outputDirectory": "web/dist",
   "rewrites": [
