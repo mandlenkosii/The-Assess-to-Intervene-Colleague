@@ -154,9 +154,10 @@ export async function sendAll(run, {
 
   const eligible = outbox.filter((item) => item.status === "pending");
   if (eligible.length && (!env.SMTP_USER || !env.SMTP_PASS)) {
+    // Preview mode: no mail account set, so emails are drafted and shown but never sent.
     for (const item of eligible) {
-      item.status = "failed";
-      item.error = "SMTP_USER and SMTP_PASS must be configured before email delivery.";
+      item.status = "preview";
+      item.reason = "Preview only: not sent (SMTP_USER and SMTP_PASS are not set).";
     }
     await emitOutbox(outbox, ctx);
     return outbox;
