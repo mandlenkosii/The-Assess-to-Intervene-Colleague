@@ -28,5 +28,6 @@ Record a single clean cached run at 1280×720. Keep the mouse movements delibera
 
 - Run the completed demo three times from cache before recording.
 - Confirm the approval step is visible and no email is sent before approval.
+- The active 3D scene measured 60.16fps in the browser harness at 1280×720 (5 seconds unthrottled and 8 seconds with 4× CPU throttling), with 16.7ms median and p95 frame times and no frames over 20ms. Repeat this check on the presentation laptop; the harness result is not a physical-hardware measurement.
 - Use only team inboxes for any actual test delivery; placeholders in `data/learners.csv` are not deliverable addresses.
 - Keep the backup video open before the live pitch and have a phone hotspot available.
