@@ -25,7 +25,7 @@ function openAITransport() {
  * @param {{ log?: Function, transport?: {groq?: Function, gemini?: Function}, cacheDir?: string, retryBaseMs?: number }} [opts]
  *   transport/cacheDir/retryBaseMs are for tests and rehearsals; the app uses the defaults.
  */
-export function createLLM({ log = () => {}, transport = openAITransport(), cacheDir = CACHE_DIR, retryBaseMs = 1000 } = {}) {
+export function createLLM({ log = () => {}, transport = openAITransport(), cacheDir = CACHE_DIR, retryBaseMs = 1000, label } = {}) {
   const groq = transport.groq ?? null;
   const gemini = transport.gemini ?? null;
   if (!groq && !gemini) log("llm: no GROQ_API_KEY or GEMINI_API_KEY set; only cached responses will work");
@@ -89,7 +89,12 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
     if (cache && !env.NO_CACHE) {
       try {
         const hit = schema.safeParse(JSON.parse(await readFile(file, "utf8")));
-        if (hit.success) { stats.cacheHits++; return hit.data; }
+        if (hit.success) {
+          stats.cacheHits++;
+          // Demo pacing: a cached run would finish in under a second; pause so the audience can watch it work.
+          if (env.DEMO_PACE_MS > 0) await sleep(env.DEMO_PACE_MS);
+          return hit.data;
+        }
       } catch { /* miss */ }
     }
 
@@ -113,7 +118,9 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
     return result.data;
   }
 
-  return { json, stats };
+  // label records which model produced a run, so rehearsal numbers are never mistaken for real ones.
+  label ??= transport.groq ? `groq:${env.GROQ_MODEL_LARGE}` : transport.gemini ? `gemini:${env.GEMINI_MODEL}` : "none";
+  return { json, stats, label };
 }
 
 function withJsonInstruction(messages) {

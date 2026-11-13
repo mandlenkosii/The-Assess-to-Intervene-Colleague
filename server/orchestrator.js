@@ -88,7 +88,7 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
 
     // GOAL
     status("planning", "goal", "teacher", "Run started");
-    emit({ stage: "goal", agent: "teacher", kind: "log", message: `Goal: ${run.goal}` });
+    emit({ stage: "goal", agent: "teacher", kind: "log", message: `Goal: ${run.goal}`, data: { model: llm.label ?? "unknown" } });
 
     // PLAN
     run.plan = await agents.plan({ goal: run.goal, rubric: run.rubric, scriptIds, anchorCount: Object.keys(run.anchors).length }, ctx);
@@ -335,7 +335,11 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
       guard();
       emit({ stage: "deliver", agent: "delivery", kind: "log", message: "Teacher brief drafted", data: { brief: run.brief } });
     }
-    status("awaiting_approval", "deliver", "teacher", "Waiting for your approval. Nothing has been sent.");
+    // Status event also records the run's model-call stats, for the demo results.
+    if (!aborted) store.emit(runId, {
+      stage: "deliver", agent: "teacher", kind: "status", message: "Waiting for your approval. Nothing has been sent.",
+      data: { status: "awaiting_approval", llm_stats: { ...(llm.stats ?? {}) } },
+    });
   }
 
   // Loop 2 for one learner: build → check → rebuild with the checker's reasons, until accepted or out of attempts.

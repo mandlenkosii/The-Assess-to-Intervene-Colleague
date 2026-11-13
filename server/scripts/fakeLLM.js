@@ -20,7 +20,7 @@ export function createFakeLLM({ latencyMs = 0 } = {}) {
     return schema.parse(answer(messages, count));
   }
 
-  return { json, stats };
+  return { json, stats, label: "fake" };
 }
 
 /**
@@ -32,7 +32,7 @@ export function createFakeTransport({ latencyMs = 0, counts = {} } = {}) {
     if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
     return JSON.stringify(answer(body.messages, (agent) => { counts[agent] = (counts[agent] ?? 0) + 1; }));
   };
-  return { groq: send, gemini: null, counts };
+  return { groq: send, gemini: null, counts, fake: true };
 }
 
 function answer(messages, count) {

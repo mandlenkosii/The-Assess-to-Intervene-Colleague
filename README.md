@@ -26,14 +26,15 @@ The UI shell works without model or email credentials. If port 5173 is busy, Vit
 | `npm run ping` | Health-check model call through `server/llm.js` (`-- --cache` to allow the cache) |
 | `npm run smoke` | Headless demo run with per-stage timings, model calls and corrections (`-- --fake`, `-- --approve`, `-- --latency=300`) |
 | `npm run warm` | **Before the demo:** runs the demo class twice; passes when run 2 is under 60 s and ≥95% cached (`-- --fake` to rehearse) |
+| `npm run results` | Measures the latest real run (accuracy, traps, corrections, timings) → `data/demo-results.json` and the pitch closing line. Rehearsal runs never write there |
 | `npm run sample-events` | Regenerates `data/sample-events.jsonl`, a fake full run to build the UI against |
 | `npm test` | Node test runner over the server and marking tests |
 | `npm run build && npm start` | Production: Express serves `web/dist` and the API on one port |
 
 ## Demo day
 
-1. `npm run warm` with the demo API keys in `.env`. Both runs stop at the approval gate and are saved to `runs/`.
-2. `npm run build && npm start`, then open the app. **Open last run** reopens the warmed run instantly, even after a restart.
+1. `npm run warm` with the demo API keys in `.env`, then `npm run results` for the pitch numbers. Full script and checklist: [docs/pitch.md](docs/pitch.md).
+2. Set `DEMO_PACE_MS=600`, then `npm run build && npm start` and open the app. **Open last run** reopens the warmed run instantly, even after a restart.
 3. If a run is cut off by a restart it is marked interrupted. Click **Load demo class** again, and it is served from the cache.
 
 ## Layout

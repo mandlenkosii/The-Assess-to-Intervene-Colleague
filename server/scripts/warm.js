@@ -23,7 +23,7 @@ if (!fake && !env.GROQ_API_KEY && !env.GEMINI_API_KEY) {
 const store = createRunStore();
 const inputs = await loadDemoInputs();
 const options = fake
-  ? { transport: createFakeTransport({ latencyMs: 150 }), cacheDir: join(CACHE_DIR, "rehearsal") }
+  ? { transport: createFakeTransport({ latencyMs: 150 }), cacheDir: join(CACHE_DIR, "rehearsal"), label: "fake (rehearsal)" }
   : { log: (m) => console.log(`  ${m}`) };
 
 async function once(label) {
