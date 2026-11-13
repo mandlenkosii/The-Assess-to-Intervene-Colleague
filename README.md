@@ -18,20 +18,31 @@ npm run dev               # API on :3001, web on :5173 (Vite proxies /api)
 
 The UI shell works without model or email credentials. If port 5173 is busy, Vite picks the next free port; check the terminal output. Never commit `.env` or send credentials in chat.
 
+**No API keys?** Set `FAKE_LLM=1` in `.env`. The app then runs on a deterministic fake model that makes the mistakes the review loops are meant to catch, so you can watch a full run in the browser.
+
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Express (`node --watch`) + Vite together |
 | `npm run ping` | Health-check model call through `server/llm.js` (`-- --cache` to allow the cache) |
+| `npm run smoke` | Headless demo run with per-stage timings, model calls and corrections (`-- --fake`, `-- --approve`, `-- --latency=300`) |
+| `npm run warm` | **Before the demo:** runs the demo class twice; passes when run 2 is under 60 s and ≥95% cached (`-- --fake` to rehearse) |
 | `npm run sample-events` | Regenerates `data/sample-events.jsonl`, a fake full run to build the UI against |
 | `npm test` | Node test runner over the server and marking tests |
-| `npm run build && npm start` | Production: Express serves `web/dist` on one port |
+| `npm run build && npm start` | Production: Express serves `web/dist` and the API on one port |
+
+## Demo day
+
+1. `npm run warm` with the demo API keys in `.env`. Both runs stop at the approval gate and are saved to `runs/`.
+2. `npm run build && npm start`, then open the app. **Open last run** reopens the warmed run instantly, even after a restart.
+3. If a run is cut off by a restart it is marked interrupted. Click **Load demo class** again, and it is served from the cache.
 
 ## Layout
 
 ```
 shared/schemas.js   Zod contracts (frozen at H2): Mark, Review, Diagnosis, Task, BriefSummary, LogEvent, Plan, RunState
 server/llm.js       The only model client: disk cache → Groq → 429 backoff → Gemini → Zod validate → 1 JSON repair
-server/index.js     Express (/api/health; run routes from phase 1)
+server/index.js     Express entry; app.js builds it; routes/runs.js has the run API
+server/orchestrator.js  Planner → Marker ⇄ Reviewer → Diagnostician → Builder ⇄ Checker → approval gate → Delivery
 server/agents/      One file per agent: async (input, ctx) => output, ctx = { llm, emit, run }
 web/                Vite + React + three.js
 data/               Rubric, anchors, scripts, learners.csv, sample-events.jsonl

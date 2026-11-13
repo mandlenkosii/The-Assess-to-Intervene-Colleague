@@ -163,15 +163,30 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
     let pending = batch.filter((id) => run.marks[id]);
     while (pending.length) {
       guard();
-      const { reviews = [], drift = {} } = await agents.reviewBatch({
+      const input = {
         marks: pick(run.marks, pending),
         scripts: pick(run.scripts, pending),
         anchors: run.anchors,
         rubric: rubricForAgents(),
         plan: { ...run.plan, borderline_band: run.plan.borderline },
         checkAnchors,
-      }, ctx);
+      };
+      // A Reviewer failure must not end the run: retry once, then send these marks to the teacher unchecked.
+      let result;
+      for (let attempt = 1; attempt <= 2 && !result; attempt++) {
+        try {
+          result = await agents.reviewBatch(input, ctx);
+        } catch (err) {
+          if (err instanceof Aborted) throw err;
+          emit({ stage: "check", agent: "calibrator", kind: "error", message: `Review attempt ${attempt} failed (${short(err.message)})` });
+        }
+      }
       guard();
+      if (!result) {
+        flagNeedsTeacher(pending, "The reviewer couldn't check this mark");
+        return;
+      }
+      const { reviews = [], drift = {} } = result;
       checkAnchors = false;
       for (const r of reviews) run.reviews[r.script_id] = r;
 
@@ -215,6 +230,19 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
     }
   }
 
+  function flagNeedsTeacher(ids, reason) {
+    for (const id of ids) {
+      const mark = run.marks[id];
+      if (!mark || mark.status === "needs_teacher") continue;
+      run.marks[id] = { ...mark, status: "needs_teacher" };
+      emit({
+        stage: "correct", agent: "calibrator", kind: "correction", ref: id,
+        message: `${id}: ${reason}, flagged needs teacher`,
+        data: { route: "marker", status: "needs_teacher", before: mark.total_pct, after: mark.total_pct, reasons: [reason], attempt: mark.attempt },
+      });
+    }
+  }
+
   // Re-marks one script with feedback. Emits a correction only when the mark actually changed
   // (a reviewer rejection is always shown, because the reviewer's reasons are the evidence).
   async function remark(id, reasons, route) {
@@ -234,6 +262,7 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
   }
 
   async function afterMarking() {
+    run.marks = byKey(run.marks); // parallel marking finishes in any order; keep runs (and cache keys) repeatable
     const marks = Object.values(run.marks);
     const corrected = new Set(run.log
       .filter((e) => e.kind === "correction" && e.ref && typeof e.data?.after === "number" && e.data.after !== e.data.before)
@@ -254,14 +283,22 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
     status("intervening", "plan", "diagnostician", "Diagnosing every learner");
     // Disputed marks aren't diagnosed: the teacher settles them first.
     const settled = Object.values(run.marks).filter((m) => m.status !== "needs_teacher");
-    const { diagnoses = [], classGaps = [] } = await agents.diagnose({
-      marks: settled,
-      rubric: rubricForAgents(),
-      plan: { ...run.plan, borderline_band: run.plan.borderline },
-      learners: Object.values(run.learners),
-    }, ctx);
+    let diagnoses, classGaps;
+    try {
+      ({ diagnoses = [], classGaps = [] } = await agents.diagnose({
+        marks: settled,
+        rubric: rubricForAgents(),
+        plan: { ...run.plan, borderline_band: run.plan.borderline },
+        learners: Object.values(run.learners),
+      }, ctx));
+    } catch (err) {
+      if (err instanceof Aborted) throw err;
+      // Fall back to a diagnosis computed in code, so struggling learners still get tasks.
+      emit({ stage: "plan", agent: "diagnostician", kind: "error", message: `Diagnostician failed (${short(err.message)}); using the weakest rubric criterion for each learner` });
+      ({ diagnoses, classGaps } = diagnoseInCode(settled, run.plan));
+    }
     guard();
-    for (const d of diagnoses) run.diagnoses[d.learner_id] = d;
+    for (const d of [...diagnoses].sort((a, b) => a.learner_id.localeCompare(b.learner_id))) run.diagnoses[d.learner_id] = d;
     run.classGaps = classGaps;
 
     const struggling = diagnoses.filter((d) => d.severity !== "on_track");
@@ -273,6 +310,7 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
     if (agents.buildTask && agents.checkTask && struggling.length) {
       status("intervening", "act", "builder", `Building ${struggling.length} catch-up task${struggling.length === 1 ? "" : "s"}`);
       await Promise.all(struggling.map((d) => limit(() => taskLoop(d))));
+      run.tasks = byKey(run.tasks);
       guard();
       const tasks = Object.values(run.tasks);
       const rebuilt = tasks.filter((t) => t.attempt > 1).length;
@@ -286,7 +324,14 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
 
     // Teacher brief (numbers computed in code by the delivery agent; the model only words the summary).
     if (agents.brief) {
-      run.brief = await agents.brief({ run }, ctx);
+      try {
+        run.brief = await agents.brief({ run }, ctx);
+      } catch (err) {
+        if (err instanceof Aborted) throw err;
+        // The model only words the summary; without it the brief's facts still render.
+        emit({ stage: "deliver", agent: "delivery", kind: "error", message: `Brief summary failed (${short(err.message)}); using the facts-only brief` });
+        run.brief = await agents.brief({ run }, { emit }).catch(() => factsOnlyBrief(run));
+      }
       guard();
       emit({ stage: "deliver", agent: "delivery", kind: "log", message: "Teacher brief drafted", data: { brief: run.brief } });
     }
@@ -349,6 +394,39 @@ export async function runColleague(runId, { store, llm, agents, concurrency = en
   }
 }
 
+// Fallbacks used only when an agent fails, so a run always reaches the teacher.
+export function diagnoseInCode(marks, plan) {
+  const pass = plan?.pass_mark ?? 50;
+  const [low, high] = plan?.borderline ?? [40, 55];
+  const totals = new Map();
+  const diagnoses = marks.map((m) => {
+    for (const s of m.scores) {
+      const t = totals.get(s.criterion) ?? { earned: 0, possible: 0 };
+      t.earned += s.score; t.possible += s.max_score;
+      totals.set(s.criterion, t);
+    }
+    const weakest = [...m.scores].sort((a, b) => a.score / a.max_score - b.score / b.max_score)[0];
+    const severity = m.total_pct < pass ? "needs_help" : m.total_pct >= low && m.total_pct <= high ? "watch" : "on_track";
+    return { learner_id: m.script_id, root_gap: weakest?.criterion ?? "unknown", severity, evidence: weakest?.evidence ? [weakest.evidence] : [] };
+  });
+  const classGaps = [...totals].map(([criterion, t]) => ({ criterion, average_pct: t.possible ? (t.earned / t.possible) * 100 : 0 }))
+    .sort((a, b) => a.average_pct - b.average_pct).slice(0, 2);
+  return { diagnoses, classGaps };
+}
+
+function factsOnlyBrief(run) {
+  const marks = Object.values(run.marks);
+  const struggling = Object.values(run.diagnoses).filter((d) => d.severity !== "on_track");
+  return [
+    "# Class assessment brief", "",
+    `- Scripts marked: ${marks.length}`,
+    `- Needs teacher review: ${marks.filter((m) => m.status === "needs_teacher").length}`,
+    `- Learners with a catch-up task: ${struggling.length}`, "",
+    "## Learners needing support",
+    ...(struggling.length ? struggling.map((d) => `- ${d.learner_id}: ${d.root_gap}`) : ["- None"]),
+  ].join("\n") + "\n";
+}
+
 export class ApprovalError extends Error {
   constructor(message, status = 409) { super(message); this.status = status; }
 }
@@ -385,16 +463,23 @@ export async function deliverRun(runId, { store, llm, agents }) {
     agents = { ...(await loadAgents()), ...(agents ?? {}) };
     const ctx = { llm, emit, run };
     const dir = store.runDir?.(runId);
+    // Each delivery step is independent: a failed spreadsheet must not stop the emails, and vice versa.
+    const step = async (label, fn) => {
+      try { return await fn(); } catch (err) {
+        emit({ stage: "deliver", agent: "delivery", kind: "error", message: `${label} failed (${short(err.message)})` });
+        return null;
+      }
+    };
     if (dir) {
       await mkdir(dir, { recursive: true });
-      if (run.brief) await writeFile(join(dir, "brief.md"), run.brief, "utf8");
+      if (run.brief) await step("Saving brief.md", () => writeFile(join(dir, "brief.md"), run.brief, "utf8"));
       if (agents.marksXlsx) {
-        await agents.marksXlsx(run, join(dir, "marks.xlsx"));
-        emit({ stage: "deliver", agent: "delivery", kind: "log", message: `marks.xlsx written (${Object.keys(run.marks).length} rows)` });
+        const ok = await step("Writing marks.xlsx", () => agents.marksXlsx(run, join(dir, "marks.xlsx")));
+        if (ok) emit({ stage: "deliver", agent: "delivery", kind: "log", message: `marks.xlsx written (${Object.keys(run.marks).length} rows)` });
       }
     }
 
-    const outbox = agents.sendAll ? await agents.sendAll(run, { excluded: run.excluded, ctx }) : [];
+    const outbox = (agents.sendAll ? await step("Sending emails", () => agents.sendAll(run, { excluded: run.excluded, ctx })) : null) ?? [];
     run.outbox = outbox;
     const count = (s) => outbox.filter((m) => m.status === s).length;
     const summary = `Delivered: ${count("sent")} sent, ${count("failed")} failed, ${count("skipped")} skipped`;
@@ -410,4 +495,5 @@ export async function deliverRun(runId, { store, llm, agents }) {
 }
 
 const short = (s, n = 110) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+const byKey = (obj) => Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
 const pick = (obj, ids) => Object.fromEntries(ids.filter((id) => id in obj).map((id) => [id, obj[id]]));

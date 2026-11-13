@@ -9,7 +9,8 @@
     "ping": "node scripts/ping.js",
     "sample-events": "node scripts/make-sample-events.js",
     "try:intervention": "node scripts/try-intervention.js",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "warm": "node scripts/warm.js"
   },
   "dependencies": {
     "@colleague/shared": "*",

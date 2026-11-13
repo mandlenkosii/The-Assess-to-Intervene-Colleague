@@ -20,7 +20,8 @@
     "build:ui": "npm --workspace web run build",
     "start": "npm --workspace server run start",
     "test": "node --test",
-    "smoke": "npm --workspace server run smoke --"
+    "smoke": "npm --workspace server run smoke --",
+    "warm": "npm --workspace server run warm --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
