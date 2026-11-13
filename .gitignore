@@ -1,8 +1,10 @@
-.env
-.env.*
-!.env.example
-.cache/
-runs/
 node_modules/
 dist/
 coverage/
+.env
+.env.*
+!.env.example
+runs/
+.cache/
+*.log
+.DS_Store

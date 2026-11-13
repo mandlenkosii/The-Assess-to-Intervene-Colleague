@@ -3,15 +3,19 @@
   "private": true,
   "type": "module",
   "workspaces": [
+    "shared",
     "server",
-    "web",
-    "shared"
+    "web"
   ],
+  "engines": { "node": ">=20" },
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:web\"",
+    "dev": "concurrently -k -n server,web -c magenta,yellow \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "npm --workspace server run dev",
     "dev:web": "npm --workspace web run dev",
+    "ping": "npm --workspace server run ping",
+    "sample-events": "npm --workspace server run sample-events",
     "build": "npm --workspace web run build",
+    "start": "npm --workspace server run start",
     "test": "node --test server/tests/*.test.js"
   },
   "devDependencies": {
