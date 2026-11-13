@@ -36,13 +36,13 @@ function displayTotal(mark) {
 export function correctionRows(events) {
   return events
     .filter((event) => event.kind === "correction" || isNeedsTeacher(event))
-    .map((event) => {
+    .map((event, index) => {
       const data = event.data || {};
       const before = data.before;
       const after = data.after;
       const reasons = data.reasons || (data.reason ? [data.reason] : []);
       return {
-        key: `${event.ref || event.t}-${data.attempt || ""}-${event.kind}`,
+        key: `${event.t || ""}-${event.ref || ""}-${data.attempt || ""}-${event.agent || ""}-${index}`,
         scriptId: event.ref || data.script_id || "Script",
         agent: event.agent || "agent",
         before: displayTotal(before),
