@@ -67,12 +67,18 @@ export default function UploadGoal({ onStarted }) {
         <div className="status-pill"><span className="status-dot" /> Ready for a class</div>
       </header>
 
+      <section className="upload-hero">
+        <p className="eyebrow">Assess · Diagnose · Intervene</p>
+        <h1>One goal. <span className="hero-highlight">Seven agents.</span></h1>
+        <p>Your colleague plans the work, marks every script, checks itself, corrects its mistakes and builds catch-up plans, then waits for your approval.</p>
+      </section>
+      <div className="upload-scene">
+        <AgentScene demo label="Seven agents orbiting the goal and passing work between them" />
+      </div>
+
       <section className="card upload-card">
-        <div className="upload-scene">
-          <AgentScene label="The seven agents that will plan, mark, check, correct and deliver for you" />
-        </div>
         <p className="eyebrow">Give your colleague one goal</p>
-        <h1 className="upload-title">What should get done?</h1>
+        <h2 className="upload-title">What should get done?</h2>
         <textarea className="goal-input" value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} aria-label="Goal" />
 
         <div className="upload-actions">

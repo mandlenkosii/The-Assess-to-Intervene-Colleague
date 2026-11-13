@@ -1,99 +1,84 @@
-// The seven agents as a lit 3D pipeline. Every effect maps to something real in the run:
-// the butter track fills up to the agent that is working, a glow sits on that agent, a candy spark
-// travels back along a correction loop, and the approval ring lights when the teacher approves.
-// Renders on demand (only while running or animating), honours reduced motion, and falls back to SVG.
+// The colleague as an orbit: the goal sits at the core, seven agents revolve around it, and every
+// message between them is drawn as a lit packet — gold for a hand-off, violet for the core
+// coordinating an agent, pink for a correction sent back. The outer ring is the teacher's approval gate.
+// Animates only while visible, honours reduced motion, and falls back to SVG without WebGL.
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
-const agentNames = ["Planner", "Marker", "Reviewer", "Diagnostician", "Builder", "Checker", "Delivery"];
-const nodePositions = [
-  [-4.6, -0.5, 0],
-  [-3.1, 0.9, 0],
-  [-1.55, 1.65, 0],
-  [0, 1.85, 0],
-  [1.55, 1.65, 0],
-  [3.1, 0.9, 0],
-  [4.6, -0.5, 0]
+export const AGENTS = [
+  { name: "Planner", role: "Reads the rubric and plans the batches" },
+  { name: "Marker", role: "Marks each script with quoted evidence" },
+  { name: "Reviewer", role: "Re-marks a sample blind and rejects drift" },
+  { name: "Diagnostician", role: "Finds each learner's root gap" },
+  { name: "Builder", role: "Writes a catch-up task per gap" },
+  { name: "Checker", role: "Checks every task before it ships" },
+  { name: "Delivery", role: "Sends feedback once you approve" },
 ];
-const ringPosition = [5.35, -0.1, 0];
-// Label positions (percent) used before WebGL starts and by the SVG fallback.
-const fallbackLabels = { left: [8, 22, 36, 51, 66, 80, 94], top: [72, 39, 20, 14, 23, 43, 73] };
-const COLORS = { night: "#26102E", butter: "#F9E27D", bone: "#FFF6CC", candy: "#FF8FC7", candyDeep: "#C2186B" };
-const PULSE_MS = 1100;
-const SCENE_HALF_WIDTH = 6.4; // world units that must stay visible left/right of centre
-const SCENE_HALF_HEIGHT = 2.1; // and above/below the look-at point, including labels
+const agentNames = AGENTS.map((a) => a.name);
+const C = {
+  bg: "#07070C", gold: "#F2C75C", violet: "#8B7CF6", pink: "#F472B6", silver: "#D8D5E3", ink: "#EDEBF3",
+};
+const ORBIT_R = 3.6;
+const GATE_R = 4.75;
+const HALF_W = 5.6;   // world units that must fit left/right
+const HALF_H = 3.25;  // and up/down (tilted orbit + labels)
+const TRAIL = 9;
 
 function SvgFallback() {
-  const coordinates = [
-    [8, 62], [22, 30], [36, 15], [51, 11], [66, 17], [80, 34], [94, 63]
-  ];
   return (
-    <svg viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <path className="agent-track" d="M80 137 C220 68, 340 30, 500 24 S780 75, 940 139" />
-      {coordinates.map(([x, y], index) => (
-        <g key={agentNames[index]} transform={`translate(${x * 10} ${y * 1.65 + 12})`}>
-          <circle className="agent-node" r="22" />
-          <text className="agent-number" textAnchor="middle" dominantBaseline="central">{index + 1}</text>
-        </g>
-      ))}
+    <svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true" className="orbit-fallback">
+      <ellipse cx="200" cy="110" rx="170" ry="58" className="orbit-fallback-gate" />
+      <ellipse cx="200" cy="110" rx="130" ry="44" className="orbit-fallback-ring" />
+      <circle cx="200" cy="110" r="16" className="orbit-fallback-core" />
+      {AGENTS.map((a, i) => {
+        const t = (i / AGENTS.length) * Math.PI * 2 + Math.PI / 2;
+        return <circle key={a.name} cx={200 + Math.cos(t) * 130} cy={110 + Math.sin(t) * 44} r="7" className="orbit-fallback-node" />;
+      })}
     </svg>
   );
 }
 
-// A soft round glow drawn once into a canvas, used for the active-agent halo and sparks.
 function glowTexture(THREE) {
-  const size = 64;
+  const s = 64;
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
+  canvas.width = canvas.height = s;
   const g = canvas.getContext("2d");
-  const gradient = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, "rgba(255,255,255,1)");
-  gradient.addColorStop(0.35, "rgba(255,255,255,.45)");
-  gradient.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = gradient;
-  g.fillRect(0, 0, size, size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.25, "rgba(255,255,255,.55)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
-function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseReady, label = "Seven assessment agents connected in sequence" }, ref) {
+function AgentScene({ activeAgent, approved = false, isRunning = false, demo = false, onPulseReady, label = "Seven agents orbiting the colleague's goal and passing work between them" }, ref) {
   const hostRef = useRef(null);
   const labelRefs = useRef([]);
-  const ringLabelRef = useRef(null);
+  const coreLabelRef = useRef(null);
+  const gateLabelRef = useRef(null);
   const apiRef = useRef(null);
-  const activeAgentRef = useRef(activeAgent);
-  const approvedRef = useRef(approved);
-  const isRunningRef = useRef(isRunning);
-  const onPulseReadyRef = useRef(onPulseReady);
+  const props = useRef({});
   const [fallback, setFallback] = useState(true);
-
-  activeAgentRef.current = activeAgent;
-  approvedRef.current = approved;
-  isRunningRef.current = isRunning;
-  onPulseReadyRef.current = onPulseReady;
+  const [hovered, setHovered] = useState(-1);
+  props.current = { activeAgent, approved, isRunning, demo, onPulseReady };
 
   useImperativeHandle(ref, () => ({
-    pulseLoop: (from, to) => apiRef.current?.pulseLoop(from, to)
+    pulseLoop: (from, to) => apiRef.current?.pulseLoop(from, to),
   }), []);
 
-  useEffect(() => {
-    apiRef.current?.setApproved(approved);
-  }, [approved]);
-
-  useEffect(() => {
-    apiRef.current?.wake(900);
-  }, [activeAgent, isRunning]);
+  useEffect(() => { apiRef.current?.setApproved(approved); }, [approved]);
+  useEffect(() => { apiRef.current?.setActive(activeAgent); }, [activeAgent]);
+  useEffect(() => { apiRef.current?.wake(); }, [isRunning]);
 
   useEffect(() => {
     let disposed = false;
     let frameId;
-    let observer;
     let renderer;
-    let scene;
-    let camera;
-    let removeListeners = () => {};
+    let cleanup = () => {};
     const disposables = [];
-    const keep = (thing) => { disposables.push(thing); return thing; };
+    const keep = (x) => { disposables.push(x); return x; };
 
     async function setup() {
       try {
@@ -102,282 +87,392 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseR
         const host = hostRef.current;
         const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(COLORS.night);
-        scene.fog = new THREE.Fog(COLORS.night, 12, 24);
-        camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
-        const lookAt = new THREE.Vector3(0, 0.55, 0);
-        const cameraBase = new THREE.Vector3(0, 0.45, 13.5);
-        camera.position.copy(cameraBase);
-        camera.lookAt(lookAt);
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(C.bg, 0.045);
+        const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+        const camDir = new THREE.Vector3(0, 0.36, 1).normalize();
+        let camDist = 11;
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-        renderer.setSize(host.clientWidth, host.clientHeight);
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+        renderer.setClearColor(0x000000, 0);
         renderer.domElement.setAttribute("aria-hidden", "true");
-        host.appendChild(renderer.domElement);
+        host.prepend(renderer.domElement);
         setFallback(false);
 
-        scene.add(new THREE.HemisphereLight(COLORS.bone, COLORS.night, 1.1));
-        const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
-        keyLight.position.set(-3, 5, 8);
-        scene.add(keyLight);
-        const rimLight = new THREE.DirectionalLight(COLORS.candy, 0.9);
-        rimLight.position.set(4, -2, -6);
-        scene.add(rimLight);
-        const activeLight = new THREE.PointLight(COLORS.butter, 0, 4.5, 1.6);
-        scene.add(activeLight);
-
-        // Depth: a faint, sparse field of points behind the pipeline.
-        const starCount = 140;
-        const starPositions = new Float32Array(starCount * 3);
-        for (let i = 0; i < starCount; i++) {
-          starPositions[i * 3] = (Math.random() - 0.5) * 30;
-          starPositions[i * 3 + 1] = (Math.random() - 0.5) * 12;
-          starPositions[i * 3 + 2] = -3 - Math.random() * 9;
-        }
-        const starGeometry = keep(new THREE.BufferGeometry());
-        starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-        const stars = new THREE.Points(starGeometry, keep(new THREE.PointsMaterial({
-          color: COLORS.bone, size: 0.05, transparent: true, opacity: 0.45, depthWrite: false
-        })));
-        scene.add(stars);
-
-        // The pipeline track, and a brighter copy that fills up to the working agent.
-        const trackCurve = new THREE.CatmullRomCurve3(nodePositions.map((p) => new THREE.Vector3(...p)));
-        const TRACK_SEGMENTS = 160;
-        const TRACK_RADIAL = 6;
-        const trackBase = new THREE.Mesh(
-          keep(new THREE.TubeGeometry(trackCurve, TRACK_SEGMENTS, 0.022, TRACK_RADIAL, false)),
-          keep(new THREE.MeshBasicMaterial({ color: COLORS.bone, transparent: true, opacity: 0.18 }))
-        );
-        scene.add(trackBase);
-        const progressGeometry = keep(new THREE.TubeGeometry(trackCurve, TRACK_SEGMENTS, 0.04, TRACK_RADIAL, false));
-        const progressTube = new THREE.Mesh(progressGeometry, keep(new THREE.MeshBasicMaterial({ color: COLORS.butter })));
-        progressGeometry.setDrawRange(0, 0);
-        scene.add(progressTube);
-        // Where each node sits along the track (0..1), found by sampling the curve once.
-        const samples = trackCurve.getSpacedPoints(400);
-        const nodeFractions = nodePositions.map((p) => {
-          const target = new THREE.Vector3(...p);
-          let best = 0;
-          samples.forEach((s, i) => { if (s.distanceToSquared(target) < samples[best].distanceToSquared(target)) best = i; });
-          return best / 400;
-        });
+        scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+        const key = new THREE.DirectionalLight(0xffffff, 1.6);
+        key.position.set(-4, 6, 6);
+        scene.add(key);
+        const coreLight = new THREE.PointLight(C.gold, 18, 9, 1.8);
+        scene.add(coreLight);
+        const violetRim = new THREE.PointLight(C.violet, 10, 14, 1.5);
+        violetRim.position.set(5, -2, -4);
+        scene.add(violetRim);
 
         const glow = keep(glowTexture(THREE));
-        const halo = new THREE.Sprite(keep(new THREE.SpriteMaterial({
-          map: glow, color: COLORS.butter, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false
+        const sprite = (color, opacity, scale) => {
+          const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+          s.scale.setScalar(scale);
+          return s;
+        };
+        const disposeSprite = (s) => { s.parent?.remove(s); s.material.dispose(); };
+
+        // Stars: a slow, sparse dust field for depth.
+        const starCount = 260;
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+          const r = 9 + Math.random() * 14;
+          const t = Math.random() * Math.PI * 2;
+          starPos[i * 3] = Math.cos(t) * r;
+          starPos[i * 3 + 1] = (Math.random() - 0.5) * 12;
+          starPos[i * 3 + 2] = Math.sin(t) * r - 4;
+        }
+        const starGeo = keep(new THREE.BufferGeometry());
+        starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+        const stars = new THREE.Points(starGeo, keep(new THREE.PointsMaterial({ color: C.ink, size: 0.045, transparent: true, opacity: 0.55, depthWrite: false })));
+        scene.add(stars);
+
+        // Tilt: the whole system leans slightly; pointer movement eases it further.
+        const tilt = new THREE.Group();
+        tilt.rotation.z = -0.1;
+        scene.add(tilt);
+
+        // Core: the goal the colleague is working towards.
+        const core = new THREE.Group();
+        tilt.add(core);
+        const coreBall = new THREE.Mesh(keep(new THREE.IcosahedronGeometry(0.5, 3)), keep(new THREE.MeshStandardMaterial({
+          color: C.gold, emissive: C.gold, emissiveIntensity: 0.65, roughness: 0.3, metalness: 0.2,
         })));
-        halo.scale.setScalar(2.4);
-        scene.add(halo);
+        core.add(coreBall);
+        const coreWire = new THREE.LineSegments(
+          keep(new THREE.EdgesGeometry(keep(new THREE.IcosahedronGeometry(0.95, 1)))),
+          keep(new THREE.LineBasicMaterial({ color: C.violet, transparent: true, opacity: 0.45 })),
+        );
+        core.add(coreWire);
+        const coreHalo = sprite(C.gold, 0.45, 3.6);
+        core.add(coreHalo);
 
-        const nodeGeometry = keep(new THREE.IcosahedronGeometry(0.38, 0));
-        const meshes = nodePositions.map((position, index) => {
-          const mesh = new THREE.Mesh(nodeGeometry, keep(new THREE.MeshStandardMaterial({
-            color: COLORS.butter, emissive: COLORS.butter, emissiveIntensity: 0, flatShading: true, roughness: 0.42, metalness: 0.12
-          })));
-          mesh.position.set(...position);
-          mesh.rotation.set(index * 0.6, index * 0.9, 0);
-          mesh.userData = { baseY: position[1], agentName: agentNames[index], scale: 1 };
-          scene.add(mesh);
-          return mesh;
+        const circle = (r, segments = 160) => {
+          const pts = [];
+          for (let i = 0; i <= segments; i++) {
+            const t = (i / segments) * Math.PI * 2;
+            pts.push(new THREE.Vector3(Math.cos(t) * r, 0, Math.sin(t) * r));
+          }
+          return keep(new THREE.BufferGeometry().setFromPoints(pts));
+        };
+        const orbitLine = new THREE.Line(circle(ORBIT_R), keep(new THREE.LineBasicMaterial({ color: C.ink, transparent: true, opacity: 0.14 })));
+        tilt.add(orbitLine);
+        const gateMat = keep(new THREE.LineDashedMaterial({ color: C.ink, transparent: true, opacity: 0.16, dashSize: 0.18, gapSize: 0.14 }));
+        const gate = new THREE.Line(circle(GATE_R, 220), gateMat);
+        gate.computeLineDistances();
+        tilt.add(gate);
+
+        // The orbiting agents, with spokes to the core and the hand-off chain between them.
+        const orbit = new THREE.Group();
+        tilt.add(orbit);
+        const agentGeo = keep(new THREE.IcosahedronGeometry(0.27, 2));
+        const agents = AGENTS.map((a, i) => {
+          const t = (i / AGENTS.length) * Math.PI * 2;
+          const mat = keep(new THREE.MeshStandardMaterial({ color: C.silver, emissive: C.gold, emissiveIntensity: 0, roughness: 0.22, metalness: 0.55 }));
+          const mesh = new THREE.Mesh(agentGeo, mat);
+          mesh.position.set(Math.cos(t) * ORBIT_R, 0, Math.sin(t) * ORBIT_R);
+          const halo = sprite(C.gold, 0, 1.6);
+          mesh.add(halo);
+          orbit.add(mesh);
+          return { mesh, mat, halo, scale: 1, glow: 0, phase: i * 0.9 };
         });
+        const spokeGeo = keep(new THREE.BufferGeometry().setFromPoints(agents.flatMap((a) => [new THREE.Vector3(), a.mesh.position.clone()])));
+        orbit.add(new THREE.LineSegments(spokeGeo, keep(new THREE.LineBasicMaterial({ color: C.violet, transparent: true, opacity: 0.1 }))));
+        const chainGeo = keep(new THREE.BufferGeometry().setFromPoints(agents.map((a) => a.mesh.position.clone())));
+        orbit.add(new THREE.Line(chainGeo, keep(new THREE.LineBasicMaterial({ color: C.gold, transparent: true, opacity: 0.16 }))));
+        const activeSpokeGeo = keep(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]));
+        const activeSpokeMat = keep(new THREE.LineBasicMaterial({ color: C.violet, transparent: true, opacity: 0 }));
+        orbit.add(new THREE.Line(activeSpokeGeo, activeSpokeMat));
 
-        const ringMaterial = keep(new THREE.MeshStandardMaterial({ color: COLORS.bone, emissive: COLORS.butter, emissiveIntensity: 0, roughness: 0.35, metalness: 0.3 }));
-        const approvalRing = new THREE.Mesh(keep(new THREE.TorusGeometry(0.48, 0.035, 10, 64)), ringMaterial);
-        approvalRing.position.set(...ringPosition);
-        scene.add(approvalRing);
-
-        // State eased each frame so changes glide instead of jumping.
-        const state = { progress: 0, ringGlow: approvedRef.current ? 1 : 0, wakeUntil: 0, pointer: { x: 0, y: 0 }, pulses: [] };
-
-        const removePulse = (pulse) => {
-          scene.remove(pulse.tube, pulse.spark);
-          pulse.tube.geometry.dispose();
-          pulse.tube.material.dispose();
-          pulse.spark.material.dispose();
+        // ---- messages between agents ----
+        const packets = [];
+        const ripples = [];
+        const tmpA = new THREE.Vector3();
+        const tmpB = new THREE.Vector3();
+        const tmpC = new THREE.Vector3();
+        const endpoint = (who, out) => {
+          if (who === "core") return core.getWorldPosition(out);
+          if (who === "gate") return tilt.localToWorld(out.set(Math.cos(1.15) * GATE_R, 0, Math.sin(1.15) * GATE_R));
+          return agents[who].mesh.getWorldPosition(out);
         };
-
-        const projectLabels = () => {
-          const w = host.clientWidth;
-          const h = host.clientHeight;
-          const v = new THREE.Vector3();
-          const place = (el, x, y, z) => {
-            if (!el) return;
-            v.set(x, y, z).project(camera);
-            el.style.left = `${((v.x + 1) / 2) * w}px`;
-            el.style.top = `${((1 - v.y) / 2) * h}px`;
-          };
-          meshes.forEach((mesh, i) => place(labelRefs.current[i], mesh.position.x, mesh.position.y - 0.66, mesh.position.z));
-          // Above the ring, so it never sits on the Delivery label below.
-          // Right-aligned to the ring's outer edge (CSS translate -100%) so it never runs off the panel.
-          place(ringLabelRef.current, ringPosition[0] + 0.5, ringPosition[1] + 0.85, ringPosition[2]);
-        };
-
-        const renderFrame = (time) => {
-          frameId = undefined;
-          if (disposed || document.hidden) return;
-          const running = isRunningRef.current;
-          const motion = !reduceMotion;
-          const activeIndex = agentNames.indexOf(activeAgentRef.current);
-
-          // Track fill: up to the working agent; full once delivered or approved.
-          const targetProgress = approvedRef.current ? 1 : activeIndex >= 0 ? nodeFractions[activeIndex] : 0;
-          state.progress += (targetProgress - state.progress) * (motion ? 0.08 : 1);
-          if (Math.abs(targetProgress - state.progress) < 0.001) state.progress = targetProgress;
-          progressGeometry.setDrawRange(0, Math.round(state.progress * TRACK_SEGMENTS) * TRACK_RADIAL * 6);
-
-          meshes.forEach((mesh, index) => {
-            const isActive = index === activeIndex;
-            mesh.position.y = mesh.userData.baseY + (running && motion ? Math.sin(time * 0.0012 + index) * 0.06 : 0);
-            if (motion) {
-              mesh.rotation.y += isActive ? 0.02 : 0.004;
-              mesh.rotation.x += 0.002;
-            }
-            const targetScale = isActive ? 1.28 : 1;
-            mesh.userData.scale += (targetScale - mesh.userData.scale) * (motion ? 0.15 : 1);
-            mesh.scale.setScalar(mesh.userData.scale);
-            const done = approvedRef.current || (activeIndex >= 0 && index < activeIndex);
-            mesh.material.emissiveIntensity = isActive ? 0.55 : done ? 0.12 : 0;
+        const send = (from, to, color, { duration = 1.1, lift = 0.9, size = 0.55 } = {}) => {
+          if (from === to) return;
+          const trail = Array.from({ length: TRAIL }, (_, k) => {
+            const s = sprite(color, 0, size * (1 - k / (TRAIL + 2)));
+            scene.add(s);
+            return s;
           });
+          packets.push({ from, to, color, trail, age: 0, duration, lift });
+          while (packets.length > 14) killPacket(packets.shift());
+          wake();
+        };
+        const killPacket = (p) => p.trail.forEach(disposeSprite);
+        const ripple = (at, color) => {
+          const s = sprite(color, 0.9, 0.4);
+          s.position.copy(at);
+          scene.add(s);
+          ripples.push({ s, age: 0 });
+        };
+        const pointOn = (p, t, out) => {
+          endpoint(p.from, tmpA);
+          endpoint(p.to, tmpB);
+          // Arc up and slightly towards the viewer so messages read clearly over the orbit.
+          tmpC.copy(tmpA).lerp(tmpB, 0.5).multiplyScalar(0.7);
+          tmpC.y += p.lift;
+          const u = 1 - t;
+          return out.set(
+            u * u * tmpA.x + 2 * u * t * tmpC.x + t * t * tmpB.x,
+            u * u * tmpA.y + 2 * u * t * tmpC.y + t * t * tmpB.y,
+            u * u * tmpA.z + 2 * u * t * tmpC.z + t * t * tmpB.z,
+          );
+        };
 
-          if (activeIndex >= 0 && running) {
-            const target = meshes[activeIndex].position;
-            activeLight.position.set(target.x, target.y + 0.2, target.z + 1.2);
-            activeLight.intensity = 6 + (motion ? Math.sin(time * 0.004) * 1.5 : 0);
-            halo.position.copy(target);
-            halo.material.opacity = 0.55 + (motion ? Math.sin(time * 0.004) * 0.15 : 0);
-          } else {
-            activeLight.intensity *= 0.85;
-            halo.material.opacity *= 0.85;
-          }
+        // ---- state ----
+        const state = {
+          active: agentNames.indexOf(props.current.activeAgent),
+          hovered: -1,
+          approved: props.current.approved ? 1 : 0,
+          pointer: new THREE.Vector2(),
+          tiltTarget: new THREE.Vector2(),
+          chatter: 0.6,
+          demoStep: 0,
+          inView: true,
+          wakeUntil: 0,
+        };
 
-          state.ringGlow += ((approvedRef.current ? 1 : 0) - state.ringGlow) * (motion ? 0.08 : 1);
-          ringMaterial.emissiveIntensity = state.ringGlow * 0.9;
-          ringMaterial.color.set(state.ringGlow > 0.5 ? COLORS.butter : COLORS.bone);
-          if (motion) approvalRing.rotation.y += 0.01 + state.ringGlow * 0.02;
-
-          for (const pulse of [...state.pulses]) {
-            const t = Math.min((time - pulse.start) / PULSE_MS, 1);
-            pulse.spark.position.copy(pulse.curve.getPointAt(motion ? t : 1));
-            pulse.spark.material.opacity = 1 - t * 0.6;
-            pulse.tube.material.opacity = 0.9 * (1 - t);
-            if (t >= 1) {
-              removePulse(pulse);
-              state.pulses.splice(state.pulses.indexOf(pulse), 1);
+        // ---- labels (HTML, projected each frame; depth-dimmed when behind the core) ----
+        const screen = [];
+        const v = new THREE.Vector3();
+        const project = (world, el, dy = 0) => {
+          v.copy(world).project(camera);
+          const x = ((v.x + 1) / 2) * host.clientWidth;
+          const y = ((1 - v.y) / 2) * host.clientHeight + dy;
+          if (el) { el.style.transform = `translate(${x}px, ${y}px) translate(-50%, 0)`; }
+          return { x, y };
+        };
+        const camPosNoSway = new THREE.Vector3();
+        const updateLabels = () => {
+          const coreZ = core.getWorldPosition(tmpA).distanceTo(camera.position);
+          agents.forEach((a, i) => {
+            a.mesh.getWorldPosition(tmpB);
+            const el = labelRefs.current[i];
+            screen[i] = project(tmpB, el, 16);
+            if (el) {
+              const behind = tmpB.distanceTo(camera.position) > coreZ + 0.4;
+              el.style.opacity = i === state.hovered || i === state.active ? "1" : behind ? "0.38" : "0.85";
+              el.style.zIndex = behind ? "1" : "3";
             }
-          }
+          });
+          project(core.getWorldPosition(tmpA), coreLabelRef.current, 34);
+          project(endpoint("gate", tmpA), gateLabelRef.current, -26);
+        };
+
+        // ---- frame ----
+        const clock = new THREE.Clock();
+        const frame = () => {
+          frameId = undefined;
+          if (disposed) return;
+          const dt = Math.min(clock.getDelta(), 0.05);
+          const t = clock.elapsedTime;
+          const motion = !reduceMotion;
+          const { isRunning: running, demo: demoMode } = props.current;
+          const live = running || demoMode;
 
           if (motion) {
-            stars.rotation.y = Math.sin(time * 0.00004) * 0.08;
-            // Parallax scales with distance so it feels the same on wide and narrow panels.
-            const sway = cameraBase.z / 13.5;
-            camera.position.x += (cameraBase.x + state.pointer.x * 0.5 * sway - camera.position.x) * 0.06;
-            camera.position.y += (cameraBase.y - state.pointer.y * 0.25 * sway - camera.position.y) * 0.06;
+            const speed = state.hovered >= 0 ? 0.015 : live ? 0.09 : 0.035;
+            orbit.rotation.y += dt * speed;
+            gate.rotation.y -= dt * 0.02;
+            coreWire.rotation.y += dt * 0.25;
+            coreWire.rotation.x += dt * 0.08;
+            stars.rotation.y += dt * 0.004;
+            state.tiltTarget.lerp(state.pointer, 0.06);
+            tilt.rotation.x = state.tiltTarget.y * 0.12;
+            tilt.rotation.z = -0.1 - state.tiltTarget.x * 0.08;
           }
-          camera.position.z = cameraBase.z;
-          camera.lookAt(lookAt);
-          renderer.render(scene, camera);
-          projectLabels();
+          const breathe = motion ? Math.sin(t * 1.6) : 0;
+          coreHalo.material.opacity = 0.38 + breathe * 0.08 + state.approved * 0.15;
+          coreBall.material.emissiveIntensity = 0.6 + breathe * 0.12;
 
-          const settling = Math.abs(targetProgress - state.progress) > 0 || state.pulses.length > 0;
-          if ((running && motion) || settling || time < state.wakeUntil) {
-            frameId = requestAnimationFrame(renderFrame);
+          agents.forEach((a, i) => {
+            const isActive = i === state.active && (running || props.current.approved);
+            const isHover = i === state.hovered;
+            const target = isHover ? 1.45 : isActive ? 1.35 : 1;
+            a.scale += (target - a.scale) * (motion ? 0.14 : 1);
+            a.mesh.scale.setScalar(a.scale);
+            if (motion) a.mesh.position.y = Math.sin(t * 1.3 + a.phase) * 0.07;
+            const g = isActive ? 1 : isHover ? 0.6 : 0;
+            a.glow += (g - a.glow) * (motion ? 0.1 : 1);
+            a.mat.emissiveIntensity = a.glow * 0.8;
+            a.halo.material.opacity = a.glow * (0.55 + breathe * 0.1);
+          });
+
+          // Active spoke: the core coordinating the agent that is working.
+          if (state.active >= 0 && running) {
+            const pos = activeSpokeGeo.attributes.position;
+            const p = agents[state.active].mesh.position;
+            pos.setXYZ(1, p.x, p.y, p.z);
+            pos.needsUpdate = true;
+            activeSpokeMat.opacity += (0.55 - activeSpokeMat.opacity) * 0.1;
+          } else activeSpokeMat.opacity *= 0.9;
+
+          // Approval gate lights up gold.
+          state.approved += ((props.current.approved ? 1 : 0) - state.approved) * (motion ? 0.05 : 1);
+          gateMat.color.set(state.approved > 0.5 ? C.gold : C.ink);
+          gateMat.opacity = 0.16 + state.approved * 0.6;
+
+          // Ambient chatter while working: the core and the active agent keep reporting to each other.
+          if (motion && live) {
+            state.chatter -= dt;
+            if (state.chatter <= 0) {
+              if (running && state.active >= 0) {
+                Math.random() < 0.5
+                  ? send("core", state.active, C.violet, { duration: 0.9, lift: 0.5, size: 0.4 })
+                  : send(state.active, "core", C.violet, { duration: 0.9, lift: 0.5, size: 0.4 });
+                state.chatter = 1.1 + Math.random() * 0.9;
+              } else if (demoMode) {
+                // Goal screen: a calm tour of the pipeline, with an occasional correction loop.
+                const i = state.demoStep % (AGENTS.length - 1);
+                if (i === 2 && state.demoStep % 12 === 2) send(2, 1, C.pink, { lift: 1.4, size: 0.6 });
+                else send(i, i + 1, C.gold);
+                if (i % 2 === 0) send("core", i + 1, C.violet, { duration: 0.9, lift: 0.4, size: 0.35 });
+                state.demoStep++;
+                state.chatter = 1.5;
+              }
+            }
+          }
+
+          for (const p of [...packets]) {
+            p.age += motion ? dt : p.duration;
+            const head = Math.min(p.age / p.duration, 1);
+            p.trail.forEach((s, k) => {
+              const tt = head - k * 0.035;
+              if (tt < 0) { s.material.opacity = 0; return; }
+              pointOn(p, Math.min(tt, 1), s.position);
+              s.material.opacity = (1 - k / TRAIL) * (head < 1 ? 0.95 : 0);
+            });
+            if (head >= 1) {
+              ripple(endpoint(p.to, new THREE.Vector3()), p.color);
+              killPacket(p);
+              packets.splice(packets.indexOf(p), 1);
+            }
+          }
+          for (const r of [...ripples]) {
+            r.age += motion ? dt : 1;
+            const k = Math.min(r.age / 0.7, 1);
+            r.s.scale.setScalar(0.4 + k * 1.8);
+            r.s.material.opacity = 0.9 * (1 - k);
+            if (k >= 1) { disposeSprite(r.s); ripples.splice(ripples.indexOf(r), 1); }
+          }
+
+          renderer.render(scene, camera);
+          updateLabels();
+
+          const keepGoing = motion && state.inView && !document.hidden;
+          if (keepGoing || (!motion && performance.now() < state.wakeUntil)) frameId = requestAnimationFrame(frame);
+        };
+
+        const wake = (ms = 300) => {
+          state.wakeUntil = Math.max(state.wakeUntil, performance.now() + ms);
+          if (frameId == null && !disposed && !document.hidden) {
+            clock.getDelta();
+            frameId = requestAnimationFrame(frame);
           }
         };
 
         apiRef.current = {
           pulseLoop(from, to) {
-            const start = agentNames.indexOf(from);
-            const end = agentNames.indexOf(to);
-            if (start < 0 || end < 0) {
-              throw new Error(`Unknown agent loop: ${from} → ${to}`);
-            }
-            // Corrections arc above the pipeline from the agent that caught the problem back to the one that fixes it.
-            const startPoint = new THREE.Vector3(...nodePositions[start]);
-            const endPoint = new THREE.Vector3(...(end === agentNames.length - 1 ? ringPosition : nodePositions[end]));
-            const control = startPoint.clone().lerp(endPoint, 0.5);
-            control.y += 1.2;
-            control.z += 0.6;
-            const curve = new THREE.QuadraticBezierCurve3(startPoint, control, endPoint);
-            const color = to === "Delivery" ? COLORS.butter : COLORS.candy;
-            const tube = new THREE.Mesh(
-              new THREE.TubeGeometry(curve, 32, 0.03, 6, false),
-              new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false })
-            );
-            const spark = new THREE.Sprite(new THREE.SpriteMaterial({
-              map: glow, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-            }));
-            spark.scale.setScalar(0.9);
-            spark.position.copy(startPoint);
-            scene.add(tube, spark);
-            // Several corrections can land in one batch; keep the newest few.
-            state.pulses.push({ curve, tube, spark, start: performance.now() });
-            while (state.pulses.length > 4) removePulse(state.pulses.shift());
-            this.wake(PULSE_MS);
+            const a = agentNames.indexOf(from);
+            const b = agentNames.indexOf(to);
+            if (a < 0 || b < 0) throw new Error(`Unknown agent loop: ${from} → ${to}`);
+            send(a, b === agentNames.length - 1 && props.current.approved ? "gate" : b, to === "Delivery" ? C.gold : C.pink, { lift: 1.5, size: 0.65, duration: 1.2 });
+          },
+          setActive(name) {
+            const next = agentNames.indexOf(name);
+            if (next === state.active) return;
+            // A hand-off: the finishing agent passes its work to the next one.
+            if (state.active >= 0 && next >= 0 && props.current.isRunning) send(state.active, next, C.gold);
+            state.active = next;
+            wake(600);
           },
           setApproved(value) {
-            if (value) this.pulseLoop("Checker", "Delivery");
-            else this.wake(600);
+            if (value) send(agentNames.indexOf("Delivery"), "gate", C.gold, { lift: 0.8, size: 0.7 });
+            wake(1500);
           },
-          wake(ms = 0) {
-            state.wakeUntil = Math.max(state.wakeUntil, performance.now() + ms);
-            if (frameId == null && !disposed && !document.hidden) {
-              frameId = requestAnimationFrame(renderFrame);
-            }
-          },
-          render() { this.wake(0); }
+          wake,
         };
 
         const resize = () => {
-          if (!renderer) return;
-          const { clientWidth, clientHeight } = host;
-          renderer.setSize(clientWidth, clientHeight);
-          camera.aspect = clientWidth / Math.max(clientHeight, 1);
-          // Frame the pipeline: close enough to fill the panel, far enough that all seven agents,
-          // the ring and their labels fit at any width (narrow phones pull the camera back).
+          const w = host.clientWidth;
+          const h = Math.max(host.clientHeight, 1);
+          renderer.setSize(w, h);
+          camera.aspect = w / h;
           const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-          const fitWidth = SCENE_HALF_WIDTH / (tanHalf * camera.aspect);
-          const fitHeight = SCENE_HALF_HEIGHT / tanHalf;
-          cameraBase.z = Math.max(fitWidth, fitHeight);
-          camera.position.z = cameraBase.z;
-          scene.fog.near = cameraBase.z;
-          scene.fog.far = cameraBase.z + 16;
+          camDist = Math.max(HALF_W / (tanHalf * camera.aspect), HALF_H / tanHalf) * 1.02;
+          camPosNoSway.copy(camDir).multiplyScalar(camDist);
+          camera.position.copy(camPosNoSway);
+          camera.lookAt(0, -0.15, 0);
           camera.updateProjectionMatrix();
-          apiRef.current?.wake(0);
+          wake();
         };
-        observer = new ResizeObserver(resize);
-        observer.observe(host);
+        const ro = new ResizeObserver(resize);
+        ro.observe(host);
+        const io = new IntersectionObserver(([entry]) => {
+          state.inView = entry.isIntersecting;
+          if (state.inView) wake();
+        });
+        io.observe(host);
 
-        const onPointerMove = (event) => {
-          if (reduceMotion) return;
+        // Hover: nearest agent on screen within reach; slows the orbit and shows its role.
+        const onMove = (e) => {
           const rect = host.getBoundingClientRect();
-          state.pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
-          state.pointer.y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
-          apiRef.current?.wake(1200);
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          state.pointer.set((x / rect.width - 0.5) * 2, (y / rect.height - 0.5) * 2);
+          let best = -1;
+          let bestD = 34;
+          screen.forEach((s, i) => {
+            if (!s) return;
+            const d = Math.hypot(s.x - x, s.y - 16 - y);
+            if (d < bestD) { bestD = d; best = i; }
+          });
+          if (best !== state.hovered) {
+            state.hovered = best;
+            setHovered(best);
+            host.style.cursor = best >= 0 ? "pointer" : "";
+          }
+          wake(400);
         };
-        const onPointerLeave = () => { state.pointer.x = 0; state.pointer.y = 0; apiRef.current?.wake(1200); };
-        const onVisibilityChange = () => {
-          if (document.hidden) {
-            if (frameId != null) cancelAnimationFrame(frameId);
-            frameId = undefined;
-          } else apiRef.current?.wake(300);
+        const onLeave = () => {
+          state.pointer.set(0, 0);
+          state.hovered = -1;
+          setHovered(-1);
+          host.style.cursor = "";
+          wake(800);
         };
-        host.addEventListener("pointermove", onPointerMove);
-        host.addEventListener("pointerleave", onPointerLeave);
-        document.addEventListener("visibilitychange", onVisibilityChange);
-        removeListeners = () => {
-          host.removeEventListener("pointermove", onPointerMove);
-          host.removeEventListener("pointerleave", onPointerLeave);
-          document.removeEventListener("visibilitychange", onVisibilityChange);
-          for (const pulse of state.pulses) removePulse(pulse);
-          state.pulses.length = 0;
+        const onVisibility = () => { if (!document.hidden) wake(); };
+        host.addEventListener("pointermove", onMove);
+        host.addEventListener("pointerleave", onLeave);
+        document.addEventListener("visibilitychange", onVisibility);
+        cleanup = () => {
+          ro.disconnect();
+          io.disconnect();
+          host.removeEventListener("pointermove", onMove);
+          host.removeEventListener("pointerleave", onLeave);
+          document.removeEventListener("visibilitychange", onVisibility);
+          packets.forEach(killPacket);
+          ripples.forEach((r) => disposeSprite(r.s));
+          scene.traverse((o) => { if (o.isSprite) o.material.dispose(); });
         };
 
         resize();
-        onPulseReadyRef.current?.(apiRef.current.pulseLoop.bind(apiRef.current));
-        apiRef.current.wake(900);
+        props.current.onPulseReady?.(apiRef.current.pulseLoop);
+        wake(1000);
       } catch (error) {
         if (!disposed) {
           console.warn("The 3D agent scene could not start; showing the SVG fallback.", error);
@@ -390,10 +485,9 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseR
     return () => {
       disposed = true;
       if (frameId != null) cancelAnimationFrame(frameId);
-      observer?.disconnect();
-      removeListeners();
+      cleanup();
       apiRef.current = null;
-      for (const thing of disposables) thing.dispose();
+      for (const d of disposables) d.dispose();
       if (renderer) {
         renderer.dispose();
         renderer.domElement.remove();
@@ -405,16 +499,24 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, onPulseR
     <div className="agent-scene" ref={hostRef} role="img" aria-label={label}>
       {fallback && <SvgFallback />}
       <div className="agent-scene-labels" aria-hidden="true">
-        {agentNames.map((name, index) => (
+        {AGENTS.map((a, i) => (
           <span
-            key={name}
-            ref={(el) => { labelRefs.current[index] = el; }}
-            className={name === activeAgent ? "is-active" : ""}
-            style={{ left: `${fallbackLabels.left[index]}%`, top: `${fallbackLabels.top[index]}%` }}
-          >{name}</span>
+            key={a.name}
+            ref={(el) => { labelRefs.current[i] = el; }}
+            className={`agent-label${a.name === activeAgent && isRunning ? " is-active" : ""}${i === hovered ? " is-hover" : ""}`}
+          >
+            <b>{a.name}</b>
+            <small>{a.role}</small>
+          </span>
         ))}
-        <span className="approval-label" ref={ringLabelRef}>Teacher approval</span>
+        <span className="agent-label core-label" ref={coreLabelRef}><b>Goal</b></span>
+        <span className={`agent-label gate-label${approved ? " is-open" : ""}`} ref={gateLabelRef}><b>Teacher approval</b></span>
       </div>
+      <ul className="scene-legend" aria-hidden="true">
+        <li><i className="dot dot-gold" />Hand-off</li>
+        <li><i className="dot dot-violet" />Coordination</li>
+        <li><i className="dot dot-pink" />Correction</li>
+      </ul>
     </div>
   );
 }
