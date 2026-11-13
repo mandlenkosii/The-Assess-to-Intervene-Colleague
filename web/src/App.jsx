@@ -4,6 +4,7 @@ import ApprovePanel from "./components/ApprovePanel.jsx";
 import LearnerCard from "./components/LearnerCard.jsx";
 import Outbox from "./components/Outbox.jsx";
 import { statusLabel } from "./lib/useRunEvents.js";
+import { CorrectionLog, Trace } from "./components/index.js";
 
 const stages = ["Goal", "Plan", "Act", "Check", "Correct", "Deliver"];
 const severityOrder = { needs_help: 0, watch: 1, on_track: 2 };
@@ -29,6 +30,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   const marks = asArray(run?.marks);
   const tasks = asArray(run?.tasks);
   const learners = asArray(run?.learners);
+  const scripts = run?.scripts ?? {};
   const learnerRecords = learners.length
     ? learners
     : diagnoses.map((diagnosis) => ({ learner_id: diagnosis.learner_id }));
@@ -84,13 +86,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
       </nav>
 
       <section className="workspace-grid">
-        <aside className="card side-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Live run</p><h2>Trace</h2></div><span className="badge badge-ok">{runStatus}</span></div>
-          <p className="muted">{events.length ? `${events.length} pipeline events recorded.` : "Agent updates and review notes will appear here when a class run starts."}</p>
-          <ol className="empty-timeline">
-            {stages.map((stage) => <li key={stage}><span className="timeline-dot" />{stage}</li>)}
-          </ol>
-        </aside>
+        <Trace events={events} />
 
         <section className="card main-panel">
           <div className="panel-heading"><div><p className="eyebrow">Workspace</p><h2>Your class</h2></div><span className="count-label">{run ? `${learnerRecords.length} learners` : "No run loaded"}</span></div>
@@ -115,7 +111,15 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
                   const diagnosis = diagnoses.find((item) => item.learner_id === learnerId);
                   const mark = marks.find((item) => (item.learner_id ?? item.script_id) === learnerId);
                   const task = tasks.find((item) => item.learner_id === learnerId);
-                  return <LearnerCard key={learnerId} learner={learner} mark={mark} diagnosis={diagnosis} task={task} />;
+                  const scriptText = typeof scripts[learnerId] === "string" ? scripts[learnerId] : undefined;
+                  return <LearnerCard
+                    key={learnerId}
+                    learner={learner}
+                    mark={mark}
+                    diagnosis={diagnosis}
+                    task={task}
+                    scriptText={scriptText}
+                  />;
                 })}</div>
                 : <div className="empty-state">
                   <div className="empty-icon" aria-hidden="true">✦</div>
@@ -129,26 +133,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
           {activeTab === "Outbox" && <Outbox messages={run?.outbox ?? []} />}
         </section>
 
-        <aside className="card side-panel correction-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Review trail</p><h2>Corrections</h2></div><span className="count-label">{events.filter((event) => event.stage === "correct").length}</span></div>
-          <p className="muted">Every change includes its reason and before/after marks.</p>
-          {events.some((event) => event.stage === "correct")
-            ? <ul className="correction-list">{events.filter((event) => event.stage === "correct").slice(-4).map((event, index) => (
-              <li key={`${event.t}-${index}`}>
-                <strong>{event.ref ?? event.agent}</strong>
-                <span>{event.message}</span>
-                {event.data?.before != null && event.data?.after != null && (
-                  <span className="correction-delta">
-                    {event.data.before.total_pct ?? event.data.before}
-                    <span aria-hidden="true"> → </span>
-                    {event.data.after.total_pct ?? event.data.after}
-                  </span>
-                )}
-                {event.data?.reasons?.map((reason) => <small key={reason}>{reason}</small>)}
-              </li>
-            ))}</ul>
-            : <div className="quiet-note"><span className="note-mark">↗</span><span>No corrections yet</span></div>}
-        </aside>
+        <CorrectionLog events={events} />
       </section>
       <footer>Human review stays in control. Nothing is sent before approval.</footer>
     </main>

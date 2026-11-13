@@ -23,7 +23,7 @@ The UI shell works without model or email credentials. If port 5173 is busy, Vit
 | `npm run dev` | Express (`node --watch`) + Vite together |
 | `npm run ping` | Health-check model call through `server/llm.js` (`-- --cache` to allow the cache) |
 | `npm run sample-events` | Regenerates `data/sample-events.jsonl`, a fake full run to build the UI against |
-| `npm test` | Node test runner over `server/tests/` |
+| `npm test` | Node test runner over the server and marking tests |
 | `npm run build && npm start` | Production: Express serves `web/dist` on one port |
 
 ## Layout
@@ -37,6 +37,14 @@ web/                Vite + React + three.js
 data/               Rubric, anchors, scripts, learners.csv, sample-events.jsonl
 runs/ .cache/       Run state/logs and the model cache (gitignored)
 ```
+
+## Marking foundation
+
+The marking slice includes learner CSV validation, TXT/PDF/DOCX text extraction, rubric checks, a rubric-constrained Marker, and a Calibrator that checks marks and blind-re-marks a deterministic sample. `data/scripts.js` and `data/expected.json` provide 30 synthetic scripts and expected rubric totals for tests. The marking tests run with `npm test`.
+
+The teacher UI includes a six-stage live trace, expandable rubric evidence with exact-quote highlights, and a correction log.
+
+The learner CSV uses the team's `TEAM_INBOX_1`–`TEAM_INBOX_3` placeholders. They are not deliverable addresses; the delivery agent rejects these placeholders if email delivery is enabled.
 
 ## Team rules
 

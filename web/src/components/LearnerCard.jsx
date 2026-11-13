@@ -1,4 +1,6 @@
-export default function LearnerCard({ learner, mark, diagnosis, task }) {
+import { ScriptCard } from "./ScriptCard.jsx";
+
+export default function LearnerCard({ learner, mark, diagnosis, task, scriptText }) {
   if (learner?.loading) {
     return (
       <article className="card learner-card learner-skeleton" aria-label="Loading learner">
@@ -25,6 +27,18 @@ export default function LearnerCard({ learner, mark, diagnosis, task }) {
       </div>
       {diagnosis && <p className="learner-gap"><strong>Focus:</strong> {diagnosis.root_gap}</p>}
       {mark?.feedback && <p className="learner-feedback">{mark.feedback}</p>}
+      {mark && (
+        <details className="mark-review">
+          <summary>Review rubric scores and evidence</summary>
+          <ScriptCard
+            mark={mark}
+            scriptText={scriptText}
+            learnerName={name}
+            corrected={(mark.attempt ?? 1) > 1}
+            showFeedback={false}
+          />
+        </details>
+      )}
       {task && (
         <section className="practice-task">
           <div className="practice-title">

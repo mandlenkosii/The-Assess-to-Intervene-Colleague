@@ -1,0 +1,58 @@
+{
+  "title": "Should cellphones be allowed in South African classrooms?",
+  "grade": 10,
+  "pass_mark": 50,
+  "borderline_band": [40, 55],
+  "criteria": [
+    {
+      "name": "argument",
+      "max_score": 20,
+      "descriptors": {
+        "0-5": "No clear position or reasons.",
+        "6-10": "Position is present but reasons are weak or repetitive.",
+        "11-15": "Clear position supported by relevant reasons.",
+        "16-20": "Convincing, well-developed position that considers complexity."
+      }
+    },
+    {
+      "name": "evidence",
+      "max_score": 20,
+      "descriptors": {
+        "0-5": "Claims are unsupported or irrelevant.",
+        "6-10": "Some examples, mostly general or weakly connected.",
+        "11-15": "Relevant examples support most claims.",
+        "16-20": "Specific, well-explained evidence consistently supports claims."
+      }
+    },
+    {
+      "name": "structure",
+      "max_score": 20,
+      "descriptors": {
+        "0-5": "Ideas are difficult to follow.",
+        "6-10": "Some paragraphing, with unclear connections.",
+        "11-15": "Logical introduction, body and conclusion.",
+        "16-20": "Purposeful progression and effective links throughout."
+      }
+    },
+    {
+      "name": "language",
+      "max_score": 20,
+      "descriptors": {
+        "0-5": "Frequent errors make meaning unclear.",
+        "6-10": "Meaning is usually clear despite frequent errors.",
+        "11-15": "Mostly accurate and appropriate language.",
+        "16-20": "Accurate, varied language suited to the purpose."
+      }
+    },
+    {
+      "name": "audience",
+      "max_score": 20,
+      "descriptors": {
+        "0-5": "Little awareness of reader or task.",
+        "6-10": "Some awareness, but tone or focus often wanders.",
+        "11-15": "Appropriate tone and focus for a school audience.",
+        "16-20": "Consistently persuasive and audience-aware."
+      }
+    }
+  ]
+}
