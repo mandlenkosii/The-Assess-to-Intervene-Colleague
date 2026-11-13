@@ -1,0 +1,29 @@
+/* Goal + upload screen. Uses the palette tokens from theme.css. */
+.upload-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.upload-card { max-width: 760px; width: calc(100% - 32px); margin: 48px auto; padding: 32px; }
+.upload-title { margin: 4px 0 16px; color: var(--aubergine); font-size: clamp(1.6rem, 3vw, 2.2rem); }
+
+.goal-input {
+  width: 100%; box-sizing: border-box; resize: vertical; padding: 14px 16px;
+  font: inherit; font-size: 1.05rem; line-height: 1.5; color: var(--aubergine);
+  background: var(--butter-soft); border: 2px solid var(--line); border-radius: 12px;
+}
+.goal-input:focus { outline: none; border-color: var(--aubergine); box-shadow: 0 0 0 3px var(--butter); }
+
+.upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 20px 0 8px; }
+.btn-large { font-size: 1.05rem; padding: 14px 24px; }
+.upload-error {
+  margin: 12px 0 0; padding: 10px 14px; border-radius: 10px;
+  color: var(--candy-deep); background: rgba(255, 143, 199, .14); border: 1px solid rgba(194, 24, 107, .25);
+}
+
+.upload-files { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+.upload-files summary { cursor: pointer; font-weight: 600; color: var(--aubergine); }
+.file-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+.file-field {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px;
+  border: 1px dashed var(--line); border-radius: 10px; background: var(--card); cursor: pointer;
+}
+.file-field:focus-within { border-color: var(--aubergine); }
+.file-label { font-weight: 600; color: var(--aubergine); }
+.file-field input { font-size: .85rem; max-width: 100%; }
