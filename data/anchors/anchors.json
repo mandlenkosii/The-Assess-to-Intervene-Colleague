@@ -1,0 +1,38 @@
+{
+  "weak": {
+    "file": "weak.txt",
+    "script_id": "anchor_weak",
+    "scores": [
+      { "criterion": "argument", "score": 8, "max_score": 20, "reason": "A position is present but is repetitive and only briefly developed." },
+      { "criterion": "evidence", "score": 7, "max_score": 20, "reason": "The dictionary and notification examples are relevant but general." },
+      { "criterion": "structure", "score": 11, "max_score": 20, "reason": "There is a clear beginning, body and conclusion with simple progression." },
+      { "criterion": "language", "score": 10, "max_score": 20, "reason": "Meaning is clear, though sentence patterns and vocabulary are basic." },
+      { "criterion": "audience", "score": 12, "max_score": 20, "reason": "The learner addresses the school question in an appropriate tone." }
+    ],
+    "total_pct": 48
+  },
+  "middle": {
+    "file": "middle.txt",
+    "script_id": "anchor_middle",
+    "scores": [
+      { "criterion": "argument", "score": 12, "max_score": 20, "reason": "The position is clear and includes a relevant counterargument." },
+      { "criterion": "evidence", "score": 11, "max_score": 20, "reason": "Examples fit the point but remain mostly general." },
+      { "criterion": "structure", "score": 13, "max_score": 20, "reason": "Ideas move logically through the benefits, risks and conclusion." },
+      { "criterion": "language", "score": 14, "max_score": 20, "reason": "Language is mostly accurate and uses some varied phrasing." },
+      { "criterion": "audience", "score": 14, "max_score": 20, "reason": "The tone is suitable and the response stays focused on school policy." }
+    ],
+    "total_pct": 64
+  },
+  "strong": {
+    "file": "strong.txt",
+    "script_id": "anchor_strong",
+    "scores": [
+      { "criterion": "argument", "score": 17, "max_score": 20, "reason": "The position is developed and thoughtfully addresses the ban argument." },
+      { "criterion": "evidence", "score": 16, "max_score": 20, "reason": "Specific classroom examples are explained in relation to learning." },
+      { "criterion": "structure", "score": 18, "max_score": 20, "reason": "Paragraphs build a purposeful, balanced line of reasoning." },
+      { "criterion": "language", "score": 17, "max_score": 20, "reason": "The response uses clear, accurate and varied language." },
+      { "criterion": "audience", "score": 17, "max_score": 20, "reason": "The policy argument anticipates the concerns of a school community." }
+    ],
+    "total_pct": 85
+  }
+}
