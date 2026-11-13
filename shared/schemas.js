@@ -82,6 +82,7 @@ export const Plan = z.object({
   borderline: z.tuple([z.number(), z.number()]).default([40, 55]),
   anchors_as_examples: z.boolean().default(false), // set true by a recalibration (replan)
   replans: z.number().int().default(0),
+  calibration_note: z.string().optional(),           // why the Planner recalibrated; passed to the Marker
 });
 
 export const Learner = z.object({

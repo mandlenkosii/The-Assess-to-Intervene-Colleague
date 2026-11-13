@@ -3,6 +3,7 @@ import AgentScene from "./components/AgentScene.jsx";
 import ApprovePanel from "./components/ApprovePanel.jsx";
 import LearnerCard from "./components/LearnerCard.jsx";
 import Outbox from "./components/Outbox.jsx";
+import { statusLabel } from "./lib/useRunEvents.js";
 import { CorrectionLog, Trace } from "./components/index.js";
 
 const stages = ["Goal", "Plan", "Act", "Check", "Correct", "Deliver"];
@@ -63,7 +64,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="/">Assess-to-Intervene <span>Colleague</span></a>
-        <div className="status-pill"><span className="status-dot" /> {runStatus}</div>
+        <div className="status-pill" aria-live="polite"><span className="status-dot" /> {statusLabel(run) ?? runStatus}</div>
       </header>
 
       <section className="hero">
