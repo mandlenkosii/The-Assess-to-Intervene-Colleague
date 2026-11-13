@@ -33,7 +33,7 @@ store.subscribe(run.id, (ev) => {
   if (ev.kind === "correction" || ev.kind === "error") console.log(`  ${ev.kind === "error" ? "!" : "↺"} ${ev.message}`);
 });
 
-console.log(`smoke: ${fake ? `fake model${latencyMs ? ` (${latencyMs}ms/call)` : ""}` : `Groq ${env.GROQ_MODEL_LARGE}`} · concurrency ${env.CONCURRENCY} · run ${run.id}`);
+console.log(`smoke: ${fake ? `fake model${latencyMs ? ` (${latencyMs}ms/call)` : ""}` : (env.LLM_PRIMARY === "groq" ? `Groq ${env.GROQ_MODEL_LARGE}` : `Gemini ${env.GEMINI_MODEL}`)} · concurrency ${env.CONCURRENCY} · run ${run.id}`);
 await runColleague(run.id, { store, llm });
 
 if (approve && run.status === "awaiting_approval") {

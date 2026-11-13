@@ -6,7 +6,7 @@ import { env } from "../env.js";
 const Pong = z.object({ ok: z.boolean(), subject: z.string(), fact: z.string() });
 const llm = createLLM({ log: console.log });
 
-console.log(`providers: groq=${env.GROQ_API_KEY ? env.GROQ_MODEL_LARGE : "off"} gemini=${env.GEMINI_API_KEY ? env.GEMINI_MODEL : "off"}`);
+console.log(`primary: ${env.LLM_PRIMARY} · providers: groq=${env.GROQ_API_KEY ? env.GROQ_MODEL_LARGE : "off"} gemini=${env.GEMINI_API_KEY ? env.GEMINI_MODEL : "off"}`);
 const t0 = Date.now();
 try {
   const out = await llm.json(
