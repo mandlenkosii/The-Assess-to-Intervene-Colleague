@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "try:intervention": "node scripts/try-intervention.js"
   },
   "dependencies": {
     "@colleague/shared": "*",
