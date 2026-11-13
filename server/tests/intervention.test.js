@@ -112,15 +112,24 @@ test("checker accepts a schema-valid task after a model review", async () => {
 test("brief reports computed counts, learner gaps, and unresolved scripts", async () => {
   const content = await brief({
     run: {
-      marks: [mark("L1", 42, 2), { ...mark("L2", 50), status: "needs_teacher" }],
+      marks: [mark("L1", 42, 3), { ...mark("L2", 50, 2), status: "needs_teacher" }],
+      log: [
+        { kind: "correction", ref: "L1", data: { before: 42, after: 42 } },
+        { kind: "correction", ref: "L2", data: { before: 43, after: 50 } },
+        { kind: "correction", ref: "L2", data: { before: "old gap", after: "new gap" } }
+      ],
       diagnoses: [
-        { learner_id: "L1", root_gap: "evidence", severity: "needs_help" }
+        { learner_id: "L1", root_gap: "evidence", severity: "needs_help" },
+        { learner_id: "L2", root_gap: "structure", severity: "watch" },
+        { learner_id: "L3", root_gap: "none", severity: "on_track" }
       ],
       classGaps: [{ criterion: "evidence", average_pct: 32.5 }]
     }
   });
   assert.match(content, /Corrections made: 1/);
+  assert.match(content, /Learners needing support: 2/);
   assert.match(content, /\*\*evidence:\*\* L1/);
+  assert.match(content, /\*\*structure:\*\* L2/);
   assert.match(content, /L2/);
   assert.match(content, /32\.5% average/);
 });
@@ -128,7 +137,11 @@ test("brief reports computed counts, learner gaps, and unresolved scripts", asyn
 test("brief model summary receives computed facts and cannot replace computed figures", async () => {
   let request;
   const content = await brief({
-    run: { marks: [mark("L1", 50)], diagnoses: [], classGaps: [] }
+    run: {
+      marks: [mark("L1", 50)],
+      diagnoses: [{ learner_id: "L1", root_gap: "evidence", severity: "watch" }],
+      classGaps: []
+    }
   }, {
     llm: {
       async json(messages, options) {
@@ -138,8 +151,10 @@ test("brief model summary receives computed facts and cannot replace computed fi
     }
   });
   assert.match(request.messages[1].content, /"scripts_marked":1/);
+  assert.match(request.messages[1].content, /"learners_needing_support":1/);
   assert.equal(request.options.tier, "small");
   assert.match(content, /Scripts marked: 1/);
+  assert.match(content, /Learners needing support: 1/);
   assert.match(content, /One script is ready for review/);
 });
 
@@ -217,11 +232,17 @@ test("delivery sends eligible emails and records per-recipient failures without 
 
 test("marks workbook includes per-criterion and status columns", async () => {
   const workbook = await marksXlsx({
-    marks: [mark("L1", 60)],
+    marks: [mark("L1", 60, 2), mark("L2", 65, 2)],
+    log: [
+      { kind: "correction", ref: "L1", data: { before: 60, after: 60 } },
+      { kind: "correction", ref: "L2", data: { before: 60, after: 65 } }
+    ],
     diagnoses: [{ learner_id: "L1", root_gap: "evidence" }]
   });
   const sheet = workbook.getWorksheet("Marks");
   assert.equal(sheet.getRow(1).getCell(1).value, "Learner");
   assert.equal(sheet.getRow(1).getCell(2).value, "argument");
   assert.equal(sheet.getRow(2).getCell(1).value, "L1");
+  assert.equal(sheet.getRow(2).getCell(6).value, "No");
+  assert.equal(sheet.getRow(3).getCell(6).value, "Yes");
 });
