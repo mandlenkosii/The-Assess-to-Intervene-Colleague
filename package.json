@@ -1,0 +1,15 @@
+{
+  "name": "colleague-zero",
+  "private": true,
+  "type": "module",
+  "workspaces": ["shared", "server", "web"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c magenta,yellow \"npm run dev -w server\" \"npm run dev -w web\"",
+    "ping": "npm run ping -w server",
+    "sample-events": "npm run sample-events -w server",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": { "concurrently": "^9.1.0" }
+}
