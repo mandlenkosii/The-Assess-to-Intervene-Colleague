@@ -52,7 +52,7 @@ function scriptedReviewer(rejectIf = () => false, { drift = () => false, calls =
 }
 
 const run1 = async (ctx, agents, opts = {}) =>
-  runColleague(ctx.run.id, { store: ctx.store, llm: noLLM, agents: { plan, recalibrate, ...agents }, ...opts });
+  runColleague(ctx.run.id, { store: ctx.store, llm: noLLM, agents: { plan, recalibrate, diagnose: null, ...agents }, ...opts });
 
 const corrections = (run) => run.log.filter((e) => e.kind === "correction");
 const allValid = (run) => run.log.forEach((ev) => assert.ok(LogEvent.safeParse(ev).success, `invalid: ${JSON.stringify(ev)}`));

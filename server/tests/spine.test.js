@@ -54,7 +54,7 @@ test("planner uses one model call to read a free-form rubric", async () => {
 test("orchestrator without a Reviewer: plan → mark every script → done, every event valid", async () => {
   const store = createRunStore({ persist: false });
   const run = seedRun(store);
-  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: stubMarker, reviewBatch: null } });
+  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: stubMarker, reviewBatch: null, diagnose: null } });
 
   assert.equal(run.status, "done");
   assert.ok(run.plan);
@@ -66,7 +66,7 @@ test("orchestrator without a Reviewer: plan → mark every script → done, ever
 test("orchestrator stops cleanly after planning when no Marker exists", async () => {
   const store = createRunStore({ persist: false });
   const run = seedRun(store, 3);
-  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: null, reviewBatch: null } });
+  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: null, reviewBatch: null, diagnose: null } });
   assert.equal(run.status, "done");
   assert.ok(run.log.some((e) => e.kind === "error" && /Marker/.test(e.message)));
 });
@@ -75,7 +75,7 @@ test("orchestrator turns an agent crash into status error, never a thrown promis
   const store = createRunStore({ persist: false });
   const run = seedRun(store, 3);
   const boom = async () => { throw new Error("model exploded"); };
-  await runColleague(run.id, { store, llm: noLLM, agents: { plan: boom, markScript: stubMarker, reviewBatch: null } });
+  await runColleague(run.id, { store, llm: noLLM, agents: { plan: boom, markScript: stubMarker, reviewBatch: null, diagnose: null } });
   assert.equal(run.status, "error");
   assert.ok(run.log.some((e) => /model exploded/.test(e.message)));
 });
@@ -84,7 +84,7 @@ test("a Marker that always fails is retried, then the script is flagged needs te
   const store = createRunStore({ persist: false });
   const run = seedRun(store, 2);
   const boom = async () => { throw new Error("model exploded"); };
-  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: boom, reviewBatch: null } });
+  await runColleague(run.id, { store, llm: noLLM, agents: { plan, markScript: boom, reviewBatch: null, diagnose: null } });
   assert.equal(run.status, "done");
   assert.deepEqual(run.unmarked, ["L001", "L002"]);
   assert.match(run.log.at(-1).message, /0 of 2 marked, 0 corrected, 2 need teacher/);
@@ -102,7 +102,7 @@ test("csv parsing and script → learner pairing", () => {
 // ---- HTTP + SSE ----
 async function withServer(fn) {
   const store = createRunStore({ persist: false });
-  const { app } = createApp({ store, llm: noLLM, agents: { plan, markScript: stubMarker, reviewBatch: null } });
+  const { app } = createApp({ store, llm: noLLM, agents: { plan, markScript: stubMarker, reviewBatch: null, diagnose: null } });
   const server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;

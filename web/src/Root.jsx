@@ -13,6 +13,7 @@ function initialRunId() {
 
 export default function Root() {
   const [runId, setRunId] = useState(initialRunId);
+  const [busy, setBusy] = useState(false);
   const { run, error } = useRunEvents(runId);
 
   const onStarted = useCallback((id) => {
@@ -23,11 +24,27 @@ export default function Root() {
     setRunId(id);
   }, []);
 
+  // The human gate. ApprovePanel calls this with the learners the teacher chose to exclude.
+  const onApprove = useCallback(async ({ excluded = [] } = {}) => {
+    if (!runId || runId === "mock") return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/runs/${runId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved: true, excluded }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Approval failed (${res.status})`);
+    } finally {
+      setBusy(false);
+    }
+  }, [runId]);
+
   if (!runId) return <UploadGoal onStarted={onStarted} />;
   if (error === "Run not found") {
     // Server restarted (runs live in memory); go back to the goal screen.
     window.history.replaceState({}, "", window.location.pathname);
     return <UploadGoal onStarted={onStarted} />;
   }
-  return <App run={run} loading={!run || run.log.length === 0} />;
+  return <App run={run} loading={!run || run.log.length === 0} onApprove={onApprove} busy={busy} />;
 }

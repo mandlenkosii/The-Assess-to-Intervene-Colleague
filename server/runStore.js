@@ -104,6 +104,7 @@ export function createRunStore({ dir = join(ROOT, "runs"), persist = true } = {}
   }
 
   const latest = () => [...runs.values()].at(-1) ?? null;
+  const runDir = (id) => (persist ? join(dir, id) : null);
 
-  return { create, get, emit, setStatus, subscribe, flush, snapshot, latest };
+  return { create, get, emit, setStatus, subscribe, flush, snapshot, latest, runDir };
 }

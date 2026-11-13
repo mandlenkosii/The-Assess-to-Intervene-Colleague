@@ -30,6 +30,11 @@ function applyEvent(run, ev) {
       break;
     case "correction":
       run.corrections.push(ev);
+      // "needs teacher" lives on the item itself so cards and the approval panel can show it.
+      if (d.status === "needs_teacher" && ev.ref) {
+        if (d.route === "builder" && run.tasks[ev.ref]) run.tasks[ev.ref] = { ...run.tasks[ev.ref], status: "needs_teacher" };
+        else if (d.route !== "builder" && run.marks[ev.ref]) run.marks[ev.ref] = { ...run.marks[ev.ref], status: "needs_teacher" };
+      }
       break;
     case "diagnosis":
       if (d.diagnosis) run.diagnoses[d.diagnosis.learner_id] = d.diagnosis;
@@ -41,12 +46,20 @@ function applyEvent(run, ev) {
     case "task":
       if (d.task) run.tasks[d.task.learner_id] = d.task;
       break;
-    case "email":
-      run.outbox.push(d.email ?? { ...d, message: ev.message });
+    case "email": {
+      // One event per email as it's sent; upsert by learner so the final full outbox can replace it cleanly.
+      const item = d.email ?? { learner_id: ev.ref, status: d.status, error: d.reason, message: ev.message };
+      const i = run.outbox.findIndex((m) => m.learner_id && m.learner_id === item.learner_id);
+      if (i >= 0) run.outbox[i] = { ...run.outbox[i], ...item };
+      else run.outbox.push(item);
       break;
+    }
     default:
       if (d.plan) run.plan = d.plan;
+      if (d.brief) run.brief = d.brief;
+      if (Array.isArray(d.outbox)) run.outbox = d.outbox;   // delivery's final, complete outbox (to, subject, html, status)
       if (d.email) run.outbox.push(d.email);
+      if (d.approved) { run.approved = true; run.excluded = d.excluded ?? []; }
   }
   return run;
 }

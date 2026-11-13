@@ -7,7 +7,9 @@
     "server",
     "web"
   ],
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -k -n server,web -c magenta,yellow \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "npm --workspace server run dev",
@@ -17,7 +19,8 @@
     "build": "npm --workspace web run build",
     "build:ui": "npm --workspace web run build",
     "start": "npm --workspace server run start",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke": "npm --workspace server run smoke --"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
