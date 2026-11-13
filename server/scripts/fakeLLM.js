@@ -17,49 +17,65 @@ export function createFakeLLM({ latencyMs = 0 } = {}) {
 
   async function json(messages, { schema }) {
     if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
-    const system = messages.find((m) => m.role === "system")?.content ?? "";
-    const user = messages.at(-1)?.content ?? "";
-    const input = tryJson(user) ?? {};
-    let out;
-
-    if (input.script !== undefined && input.rubric) {
-      const blind = /independent, strict marker/i.test(system);
-      count(blind ? "blind" : "marker");
-      out = mark(input, blind);
-    } else if (/Severity \(computed in code\)/.test(user)) {
-      count("diagnostician");
-      const learner = user.match(/Learner: ([^,\n]+)/)?.[1] ?? "unknown";
-      const gap = user.match(/Lowest criterion: (.+)/)?.[1]?.trim() ?? "structure";
-      out = { learner_id: learner, root_gap: gap, severity: "needs_help", evidence: [] };
-    } else if (/practice task/i.test(system) && /Diagnosis:/.test(user)) {
-      count("builder");
-      const gap = user.match(/"root_gap":"([^"]+)"/)?.[1] ?? "structure";
-      out = {
-        learner_id: "x", gap,
-        instructions: `Read the paragraph below and practise ${gap} by answering each question in full sentences.`,
-        questions: [`Explain what strong ${gap} looks like in an argument.`, `Rewrite one weak sentence to improve its ${gap}.`, `Write a short paragraph that shows good ${gap}.`],
-        answer_key: ["A clear explanation with an example.", "A rewritten sentence that is clearer.", "A paragraph with a claim, a reason and an example."],
-      };
-    } else if (/Check that the task/i.test(system)) {
-      count("checker");
-      const task = tryJson(user.split("Task: ")[1] ?? "") ?? {};
-      const reject = (task.attempt ?? 1) === 1 && hash(task.learner_id) % 2 === 0;
-      out = {
-        script_id: task.learner_id ?? "x",
-        verdict: reject ? "reject" : "accept",
-        reasons: reject ? ["Questions practise general writing, not the diagnosed gap"] : [],
-      };
-    } else if (input.scripts_marked !== undefined) {
-      count("brief");
-      out = { summary: `${input.scripts_marked} scripts were marked and checked; ${input.corrections_made} marks were corrected after review, and ${input.learners_needing_support} learners have a catch-up task.` };
-    } else {
-      count("other");
-      out = { criteria: [{ name: "argument", max_score: 20 }], ok: true, subject: "fake", fact: "fake", summary: "fake" };
-    }
-    return schema.parse(out);
+    return schema.parse(answer(messages, count));
   }
 
   return { json, stats };
+}
+
+/**
+ * The same fake as a provider transport for createLLM({ transport }), so the real cache / retry / repair code runs.
+ * Returns raw JSON text, like a provider would.
+ */
+export function createFakeTransport({ latencyMs = 0, counts = {} } = {}) {
+  const send = async (body) => {
+    if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
+    return JSON.stringify(answer(body.messages, (agent) => { counts[agent] = (counts[agent] ?? 0) + 1; }));
+  };
+  return { groq: send, gemini: null, counts };
+}
+
+function answer(messages, count) {
+  const system = messages.find((m) => m.role === "system")?.content ?? "";
+  const user = messages.at(-1)?.content ?? "";
+  const input = tryJson(user) ?? {};
+  let out;
+
+  if (input.script !== undefined && input.rubric) {
+    const blind = /independent, strict marker/i.test(system);
+    count(blind ? "blind" : "marker");
+    out = mark(input, blind);
+  } else if (/Severity \(computed in code\)/.test(user)) {
+    count("diagnostician");
+    const learner = user.match(/Learner: ([^,\n]+)/)?.[1] ?? "unknown";
+    const gap = user.match(/Lowest criterion: (.+)/)?.[1]?.trim() ?? "structure";
+    out = { learner_id: learner, root_gap: gap, severity: "needs_help", evidence: [] };
+  } else if (/practice task/i.test(system) && /Diagnosis:/.test(user)) {
+    count("builder");
+    const gap = user.match(/"root_gap":"([^"]+)"/)?.[1] ?? "structure";
+    out = {
+      learner_id: "x", gap,
+      instructions: `Read the paragraph below and practise ${gap} by answering each question in full sentences.`,
+      questions: [`Explain what strong ${gap} looks like in an argument.`, `Rewrite one weak sentence to improve its ${gap}.`, `Write a short paragraph that shows good ${gap}.`],
+      answer_key: ["A clear explanation with an example.", "A rewritten sentence that is clearer.", "A paragraph with a claim, a reason and an example."],
+    };
+  } else if (/Check that the task/i.test(system)) {
+    count("checker");
+    const task = tryJson(user.split("Task: ")[1] ?? "") ?? {};
+    const reject = (task.attempt ?? 1) === 1 && hash(task.learner_id) % 2 === 0;
+    out = {
+      script_id: task.learner_id ?? "x",
+      verdict: reject ? "reject" : "accept",
+      reasons: reject ? ["Questions practise general writing, not the diagnosed gap"] : [],
+    };
+  } else if (input.scripts_marked !== undefined) {
+    count("brief");
+    out = { summary: `${input.scripts_marked} scripts were marked and checked; ${input.corrections_made} marks were corrected after review, and ${input.learners_needing_support} learners have a catch-up task.` };
+  } else {
+    count("other");
+    out = { criteria: [{ name: "argument", max_score: 20 }], ok: true, subject: "fake", fact: "fake", summary: "fake" };
+  }
+  return out;
 }
 
 function mark(input, blind) {

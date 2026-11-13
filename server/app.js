@@ -16,7 +16,7 @@ function defaultLLM() {
   return createLLM({ log: console.log });
 }
 
-export function createApp({ store = createRunStore(), llm = defaultLLM(), agents } = {}) {
+export function createApp({ store = createRunStore({ load: true }), llm = defaultLLM(), agents } = {}) {
   const app = express();
   app.use(express.json({ limit: "5mb" }));
 

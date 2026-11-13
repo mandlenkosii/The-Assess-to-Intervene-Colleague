@@ -1,5 +1,5 @@
 // The only input screen: one goal + files (or the demo class). No chat, no step-by-step instructions.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const DEFAULT_GOAL =
   "Mark this class set against the rubric, check the marks, and prepare catch-up plans for anyone who is struggling.";
@@ -24,6 +24,16 @@ export default function UploadGoal({ onStarted }) {
   const [files, setFiles] = useState({});
   const [busy, setBusy] = useState(null); // "demo" | "upload" | null
   const [error, setError] = useState(null);
+  const [latest, setLatest] = useState(null); // most recent run (e.g. the warmed demo run), to reopen instantly
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/runs/latest")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((run) => { if (!cancelled && run?.id && run.status !== "error") setLatest(run); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const ready = files.rubric?.length && files.scripts?.length && files.learners?.length;
 
@@ -66,6 +76,11 @@ export default function UploadGoal({ onStarted }) {
             {busy === "demo" ? "Starting…" : <>Load demo class <span aria-hidden="true">→</span></>}
           </button>
           <span className="muted">30 synthetic Grade 10 essays, rubric and 3 teacher-marked anchors</span>
+          {latest && (
+            <button className="btn-secondary" type="button" onClick={() => onStarted(latest.id)} disabled={Boolean(busy)}>
+              Open last run <span className="muted">({latest.status === "awaiting_approval" ? "waiting for approval" : latest.status})</span>
+            </button>
+          )}
         </div>
 
         {error && <p className="upload-error" role="alert">{error}</p>}

@@ -1,16 +1,51 @@
 // In-memory runs + persistence (runs/<id>/state.json, log.jsonl) + SSE fan-out.
 // One store per process. Everything that changes a run goes through here.
 import { randomBytes } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { LogEvent } from "@colleague/shared";
 import { ROOT } from "./env.js";
 
-export function createRunStore({ dir = join(ROOT, "runs"), persist = true } = {}) {
+// Statuses that mean work was still in progress. After a restart that work is gone, so the run is marked interrupted.
+const IN_FLIGHT = new Set(["planning", "marking", "reviewing", "intervening", "delivering"]);
+
+/**
+ * @param {{ dir?: string, persist?: boolean, load?: boolean, loadLimit?: number }} [opts]
+ *   load: read the most recent runs back from disk on startup (so a warmed demo run survives a restart).
+ */
+export function createRunStore({ dir = join(ROOT, "runs"), persist = true, load = false, loadLimit = 20 } = {}) {
   const runs = new Map();          // id -> run object
   const subscribers = new Map();   // id -> Set<(event) => void>
   const writeChains = new Map();   // id -> Promise (keeps log.jsonl lines in order)
   const persistTimers = new Map();
+
+  if (load && persist) loadFromDisk();
+
+  function loadFromDisk() {
+    if (!existsSync(dir)) return;
+    const found = [];
+    for (const id of readdirSync(dir)) {
+      try {
+        const state = JSON.parse(readFileSync(join(dir, id, "state.json"), "utf8"));
+        const logFile = join(dir, id, "log.jsonl");
+        const log = existsSync(logFile)
+          ? readFileSync(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l))
+          : [];
+        delete state.log_events;
+        found.push({ ...state, log });
+      } catch { /* half-written or foreign folder: skip */ }
+    }
+    found.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    for (const run of found.slice(-loadLimit)) {
+      runs.set(run.id, run);
+      subscribers.set(run.id, new Set());
+      if (IN_FLIGHT.has(run.status)) {
+        emit(run.id, { stage: "act", agent: "planner", kind: "error", message: "The server restarted during this run, so it was interrupted. Start a new run." });
+        setStatus(run.id, "error", { stage: "act", agent: "planner", message: "Run interrupted by a server restart" });
+      }
+    }
+  }
 
   function create(input) {
     const id = `run_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
@@ -103,7 +138,7 @@ export function createRunStore({ dir = join(ROOT, "runs"), persist = true } = {}
     return { ...rest, script_count: Object.keys(scripts).length };
   }
 
-  const latest = () => [...runs.values()].at(-1) ?? null;
+  const latest = () => [...runs.values()].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at))).at(-1) ?? null;
   const runDir = (id) => (persist ? join(dir, id) : null);
 
   return { create, get, emit, setStatus, subscribe, flush, snapshot, latest, runDir };

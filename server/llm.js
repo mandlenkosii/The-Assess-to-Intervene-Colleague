@@ -7,37 +7,48 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env, ROOT } from "./env.js";
 
-const CACHE_DIR = join(ROOT, ".cache");
+export const CACHE_DIR = join(ROOT, ".cache");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function createLLM({ log = () => {} } = {}) {
-  const groq = env.GROQ_API_KEY
-    ? new OpenAI({ apiKey: env.GROQ_API_KEY, baseURL: "https://api.groq.com/openai/v1", maxRetries: 0, timeout: env.LLM_TIMEOUT_MS })
-    : null;
-  const gemini = env.GEMINI_API_KEY
-    ? new OpenAI({ apiKey: env.GEMINI_API_KEY, baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", maxRetries: 0, timeout: env.LLM_TIMEOUT_MS })
-    : null;
+// Default transport: the real providers through their OpenAI-compatible APIs.
+// A transport is { groq?, gemini? }, each (body) => Promise<string>; errors carry .status/.headers like the SDK's.
+function openAITransport() {
+  const client = (apiKey, baseURL) => new OpenAI({ apiKey, baseURL, maxRetries: 0, timeout: env.LLM_TIMEOUT_MS });
+  const call = (c) => async (body) => (await c.chat.completions.create(body)).choices[0]?.message?.content ?? "";
+  return {
+    groq: env.GROQ_API_KEY ? call(client(env.GROQ_API_KEY, "https://api.groq.com/openai/v1")) : null,
+    gemini: env.GEMINI_API_KEY ? call(client(env.GEMINI_API_KEY, "https://generativelanguage.googleapis.com/v1beta/openai/")) : null,
+  };
+}
+
+/**
+ * @param {{ log?: Function, transport?: {groq?: Function, gemini?: Function}, cacheDir?: string, retryBaseMs?: number }} [opts]
+ *   transport/cacheDir/retryBaseMs are for tests and rehearsals; the app uses the defaults.
+ */
+export function createLLM({ log = () => {}, transport = openAITransport(), cacheDir = CACHE_DIR, retryBaseMs = 1000 } = {}) {
+  const groq = transport.groq ?? null;
+  const gemini = transport.gemini ?? null;
   if (!groq && !gemini) log("llm: no GROQ_API_KEY or GEMINI_API_KEY set; only cached responses will work");
 
   const stats = { calls: 0, cacheHits: 0, fallbacks: 0, repairs: 0, retries429: 0, ms: 0 };
 
-  async function callProvider(name, client, model, messages, temperature, maxTokens) {
+  async function callProvider(name, send, model, messages, temperature, maxTokens) {
     const body = { model, messages, temperature, max_tokens: maxTokens };
     if (name === "groq") body.response_format = { type: "json_object" };
     for (let attempt = 0; ; attempt++) {
       try {
         const t0 = Date.now();
-        const res = await client.chat.completions.create(body);
+        const content = await send(body);
         stats.calls++;
         stats.ms += Date.now() - t0;
-        return res.choices[0]?.message?.content ?? "";
+        return content;
       } catch (err) {
         const status = err?.status;
         const retryable = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError";
         if (!retryable || attempt >= 2) throw err;
         if (status === 429) stats.retries429++;
         const header = Number(err?.headers?.["retry-after"]);
-        const wait = Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 15000) : 1000 * 2 ** attempt;
+        const wait = Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 15000) : retryBaseMs * 2 ** attempt;
         log(`llm: ${name} ${status ?? "network"} – retrying in ${wait}ms`);
         await sleep(wait);
       }
@@ -73,7 +84,7 @@ export function createLLM({ log = () => {} } = {}) {
     // Key on the *primary* model so a Gemini-fallback answer is reused on the next run too.
     const model = tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
     const key = createHash("sha256").update(JSON.stringify({ model, msgs, temperature })).digest("hex");
-    const file = join(CACHE_DIR, `${key}.json`);
+    const file = join(cacheDir, `${key}.json`);
 
     if (cache && !env.NO_CACHE) {
       try {
@@ -96,7 +107,7 @@ export function createLLM({ log = () => {} } = {}) {
     }
 
     if (cache) {
-      await mkdir(CACHE_DIR, { recursive: true });
+      await mkdir(cacheDir, { recursive: true });
       await writeFile(file, JSON.stringify(result.data));
     }
     return result.data;
