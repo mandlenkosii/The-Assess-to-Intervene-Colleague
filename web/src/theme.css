@@ -122,6 +122,7 @@ h1, h2, h3, h4 { color: var(--text); letter-spacing: -.02em; }
 .agent-scene-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .agent-label {
   position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 4px; white-space: nowrap;
+  will-change: transform, opacity;
   transition: opacity .35s var(--ease);
 }
 .agent-label b {
@@ -143,7 +144,7 @@ h1, h2, h3, h4 { color: var(--text); letter-spacing: -.02em; }
 .gate-label b { font-size: 10px; color: var(--muted); }
 .gate-label.is-open b { color: var(--gold); border-color: rgba(242, 199, 92, .5); }
 .scene-legend {
-  position: absolute; left: 16px; bottom: 14px; z-index: 3; display: flex; flex-wrap: wrap; gap: 14px;
+  position: absolute; left: 18px; top: 16px; z-index: 3; display: flex; flex-wrap: wrap; gap: 14px;
   margin: 0; padding: 0; list-style: none; color: var(--muted); font: 500 10.5px var(--mono); letter-spacing: .04em;
 }
 .scene-legend li { display: flex; align-items: center; gap: 6px; }
@@ -292,7 +293,7 @@ footer { color: var(--muted); text-align: center; font-size: 12px; padding: var(
   .status-pill { font-size: 11px; padding: 6px 10px; }
   .agent-scene { height: 300px; border-radius: 18px; }
   .agent-label b { font-size: 10px; padding: 2px 7px; }
-  .scene-legend { gap: 10px; left: 12px; bottom: 10px; }
+  .scene-legend { gap: 10px; left: 12px; top: 12px; }
   .stage-item { padding: 7px 11px; }
 }
 

@@ -1,4 +1,4 @@
-// The only input screen: one goal + files (or the demo class). No chat, no step-by-step instructions.
+// The only input screen: one goal + files (or the built-in class set). No chat, no step-by-step instructions.
 import { useEffect, useState } from "react";
 import AgentScene from "./AgentScene.jsx";
 
@@ -73,7 +73,7 @@ export default function UploadGoal({ onStarted }) {
         <p>Your colleague plans the work, marks every script, checks itself, corrects its mistakes and builds catch-up plans, then waits for your approval.</p>
       </section>
       <div className="upload-scene">
-        <AgentScene demo label="Seven agents orbiting the goal and passing work between them" />
+        <AgentScene ambient label="Seven agents orbiting the goal and passing work between them" />
       </div>
 
       <section className="card upload-card">
@@ -83,9 +83,9 @@ export default function UploadGoal({ onStarted }) {
 
         <div className="upload-actions">
           <button className="btn-primary btn-large" type="button" onClick={startDemo} disabled={Boolean(busy) || !goal.trim()}>
-            {busy === "demo" ? "Starting…" : <>Load demo class <span aria-hidden="true">→</span></>}
+            {busy === "demo" ? "Starting…" : <>Load class set <span aria-hidden="true">→</span></>}
           </button>
-          <span className="muted">30 synthetic Grade 10 essays, rubric and 3 teacher-marked anchors</span>
+          <span className="muted">Grade 10 English · 30 essays, rubric and 3 teacher-marked anchors</span>
           {latest && (
             <button className="btn-secondary" type="button" onClick={() => onStarted(latest.id)} disabled={Boolean(busy)}>
               Open last run <span className="muted">({latest.status === "awaiting_approval" ? "waiting for approval" : latest.status})</span>

@@ -77,7 +77,7 @@ export async function loadDemoInputs(goal = DEFAULT_GOAL) {
   const rubric = JSON.parse(await readFile(join(DATA, "rubric.json"), "utf8"));
   const learners = learnersFromCsv(await readFile(join(DATA, "learners.csv"), "utf8"));
   const list = await readScriptList();
-  if (!list.length) throw new InputError("Demo class has no scripts (data/scripts.js or data/scripts/*.txt)", 503);
+  if (!list.length) throw new InputError("The built-in class set has no scripts (data/scripts.js or data/scripts/*.txt)", 503);
   const anchors = await readAnchors(join(DATA, "anchors"), rubric);
   return { goal, rubric, anchors, learners, ...keyByLearner(list, learners) };
 }
