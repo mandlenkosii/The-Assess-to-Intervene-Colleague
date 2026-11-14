@@ -172,6 +172,27 @@ test("handwriting: an image-only PDF is read by Gemini twice and labelled single
   });
 });
 
+test("handwriting: a typed PDF in the photo upload is read directly, with no model calls", async () => {
+  await withFlag(true, async () => {
+    const calls = [];
+    await withServer({ calls }, async (base) => {
+      const form = new FormData();
+      form.append("photos", new Blob([readFileSync(new URL("./fixtures/files/typed.pdf", import.meta.url))]), "L006.pdf");
+      const res = await fetch(`${base}/api/transcriptions`, { method: "POST", body: form });
+      const { id } = await res.json();
+      let job;
+      for (let i = 0; i < 200 && job?.status !== "done"; i++) {
+        job = await (await fetch(`${base}/api/transcriptions/${id}`)).json();
+        if (job.status !== "done") await new Promise((r) => setTimeout(r, 10));
+      }
+      assert.equal(job.items[0].method, "pdf-text");
+      assert.equal(job.items[0].status, "ok");
+      assert.match(job.items[0].text, /This is typed text/);
+      assert.equal(calls.length, 0);
+    });
+  });
+});
+
 test("handwriting: if the models fail, the script is flagged for the teacher and the job still finishes", async () => {
   await withFlag(true, async () => {
     await withServer({ answers: { "clean.png": { gemini: new Error("vision down"), groq: new Error("vision down") } } }, async (base) => {

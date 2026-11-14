@@ -6,7 +6,7 @@
 //      logged at stage "correct". The teacher reviews and edits every transcription before marking starts.
 // Never throws: a failed reading is flagged for the teacher instead.
 import { readFile } from "node:fs/promises";
-import pdf from "pdf-parse";
+import { pdfToText } from "../parse.js";
 import { z } from "zod";
 import { env } from "../env.js";
 
@@ -74,7 +74,7 @@ export function illegibleShare(text) {
 // A PDF that already has a text layer is typed, not handwritten: use its text and skip the model.
 async function pdfText(buffer) {
   try {
-    const { text } = await pdf(buffer);
+    const text = await pdfToText(buffer);
     return text.replace(/\s/g, "").length >= 30 ? text.trim() : null;
   } catch {
     return null; // image-only, or a PDF this parser can't open: let the vision model read it
