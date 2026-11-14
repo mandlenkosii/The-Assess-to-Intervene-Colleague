@@ -39,11 +39,12 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
 
   const stats = { calls: 0, cacheHits: 0, fallbacks: 0, repairs: 0, retries429: 0, ms: 0, modelSwitches: 0 };
 
-  // Daily-quota ladder: free quotas are per model, so when one model's daily quota is gone the provider's next model
-  // answers. Only a *daily* quota error moves down the ladder; per-minute 429s are retried exactly as before.
-  // An exhausted model is skipped for an hour (quotas reset once a day), so a run doesn't wait on it 170 times.
-  const exhausted = new Map();
-  const isDailyQuota = (err) => err?.status === 429 && /quota|per day|\bTPD\b|\bRPD\b/i.test(String(err?.message ?? ""));
+  // Model ladder: free quotas are counted per model, so on a 429 the same key's next model answers straight away
+  // (no waiting) and the busy model rests: 90 s for a per-minute limit, an hour when the error says it's a daily one.
+  // Gemini's 429s reach us with no body, so a rest is the only safe guess; a daily-exhausted model is simply tried
+  // again after its rest. The last model still standing gets the usual backoff retries.
+  const resting = new Map();
+  const isDailyQuota = (err) => err?.status === 429 && /per day|daily|\bTPD\b|\bRPD\b|PerDay/i.test(String(err?.message ?? ""));
   const ladderFor = (name, tier) => {
     const first = modelFor(name, tier);
     if (tier === "vision") return [first];
@@ -52,23 +53,27 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   };
   async function callLadder(name, sendFn, tier, messages, temperature, maxTokens) {
     const ladder = ladderFor(name, tier);
-    const live = ladder.filter((m) => !(exhausted.get(m) > Date.now()));
+    const now = Date.now();
+    let live = ladder.filter((m) => !(resting.get(m) > now));
+    // Everyone resting: try the one that's due back first.
+    if (!live.length) live = [ladder.reduce((a, b) => (resting.get(a) <= resting.get(b) ? a : b))];
     let lastErr;
-    for (const [i, model] of (live.length ? live : ladder.slice(-1)).entries()) {
+    for (const [i, model] of live.entries()) {
+      const isLast = i === live.length - 1;
       if (i) { stats.modelSwitches++; log(`llm: ${name} switching to ${model}`); }
       try {
-        return await callProvider(name, sendFn, model, messages, temperature, maxTokens);
+        return await callProvider(name, sendFn, model, messages, temperature, maxTokens, isLast);
       } catch (err) {
         lastErr = err;
-        if (!isDailyQuota(err)) throw err;
-        exhausted.set(model, Date.now() + 60 * 60 * 1000);
-        log(`llm: ${name} ${model} daily quota used up`);
+        if (err?.status !== 429) throw err;
+        resting.set(model, Date.now() + (isDailyQuota(err) ? 60 * 60 * 1000 : 90 * 1000));
+        log(`llm: ${name} ${model} rate-limited${isDailyQuota(err) ? " for the day" : ""}`);
       }
     }
     throw lastErr;
   }
 
-  async function callProvider(name, send, model, messages, temperature, maxTokens) {
+  async function callProvider(name, send, model, messages, temperature, maxTokens, retry429 = true) {
     const body = { model, messages, temperature, max_tokens: maxTokens };
     if (name === "groq") body.response_format = { type: "json_object" };
     // gpt-oss reasoning tokens count against Groq's free 8k tokens/minute; low effort keeps a mark to one call's worth.
@@ -83,7 +88,7 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
       } catch (err) {
         const status = err?.status;
         const retryable = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError";
-        if (!retryable || attempt >= 2 || isDailyQuota(err)) throw err; // a daily quota won't come back in seconds
+        if (!retryable || attempt >= 2 || (status === 429 && (!retry429 || isDailyQuota(err)))) throw err; // another model can answer now
         if (status === 429) stats.retries429++;
         const header = Number(err?.headers?.["retry-after"]);
         const wait = Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 15000) : retryBaseMs * 2 ** attempt;

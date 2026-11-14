@@ -1,4 +1,4 @@
-import { Review, Task } from "@colleague/shared";
+import { Review, Task, promptHints } from "@colleague/shared";
 
 export async function checkTask({ task, diagnosis }, ctx) {
   const reasons = [];
@@ -24,7 +24,7 @@ export async function checkTask({ task, diagnosis }, ctx) {
     const modelReview = Review.parse(await ctx.llm.json([
       {
         role: "system",
-        content: "Check that the task is suitable for Grade 10 and directly targets the diagnosed gap. Return only JSON."
+        content: `Check that the task is suitable for Grade 10 and directly targets the diagnosed gap. Return only JSON, exactly this shape: ${promptHints.Review}`
       },
       {
         role: "user",
