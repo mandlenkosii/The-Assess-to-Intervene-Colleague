@@ -42,11 +42,15 @@ export function keyByLearner(scriptList, learners) {
   return { scripts, source_ids };
 }
 
+const lf = (text) => text.replace(/\r\n/g, "\n");
+
 async function readAnchors(dir, rubric) {
   const meta = JSON.parse(await readFile(join(dir, "anchors.json"), "utf8"));
   const anchors = {};
   for (const [key, a] of Object.entries(meta)) {
-    const text = await readFile(join(dir, a.file), "utf8");
+    // Same text on every machine: a Windows checkout has CRLF line endings, Render has LF, and the model cache is keyed
+    // on the exact prompt, so the shipped demo answers (data/demo-cache/) only replay if the line endings match.
+    const text = lf(await readFile(join(dir, a.file), "utf8"));
     anchors[key] = { script_id: a.script_id ?? key, text, scores: a.scores, total_pct: a.total_pct ?? pct(a.scores, rubric) };
   }
   return anchors;
@@ -66,7 +70,7 @@ async function readScriptList() {
   const dir = join(DATA, "scripts");
   if (existsSync(dir)) {
     const files = (await readdir(dir)).filter((f) => extname(f) === ".txt").sort();
-    return Promise.all(files.map(async (f) => ({ id: f.replace(/\.txt$/, ""), text: await readFile(join(dir, f), "utf8") })));
+    return Promise.all(files.map(async (f) => ({ id: f.replace(/\.txt$/, ""), text: lf(await readFile(join(dir, f), "utf8")) })));
   }
   return [];
 }

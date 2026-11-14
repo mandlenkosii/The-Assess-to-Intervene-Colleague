@@ -144,7 +144,7 @@ All model calls go through `server/llm.js`. **Gemini is the primary model and Gr
 | `CONCURRENCY` | `2` on free tiers, `4` with Gemini billing |
 | `LLM_TIMEOUT_MS` | `60000` |
 | `NO_CACHE` / `FAKE_LLM` | `0` / `0` |
-| `DEMO_PACE_MS` | `0` (`600` for the pitch) |
+| `DEMO_PACE_MS` | `600` by default, so a replayed demo is watchable (`0` = off) |
 | `PORT`, `SMTP_*` | leave unset (Render sets the port; no SMTP keeps email in preview) |
 
 **Vercel.** Import the repo with framework preset **Other**. `vercel.json` sets the install and build commands, the output folder (`web/dist`) and the `/api` rewrite. No environment variables are needed. The install command also adds the Linux rollup and esbuild binaries, because the lockfile is generated on Windows and leaves them out. If the Render URL changes, update it in `vercel.json`.
@@ -154,7 +154,7 @@ All model calls go through `server/llm.js`. **Gemini is the primary model and Gr
 ## Demo day
 
 1. Wake the API (open the live site or `/api/health`), then load the class set once to warm the cache. Locally, use `npm run warm`, then `npm run results` for the pitch numbers.
-2. Set `DEMO_PACE_MS=600` so the warmed run unfolds on screen in about 20–30 seconds.
+2. `DEMO_PACE_MS` defaults to 600, so the replayed run unfolds on screen in about 35 seconds.
 3. Present with **Load class set**. It replays the shipped real run (`data/demo-cache/`).
 4. If a restart cuts a run off, it is marked interrupted. Click **Load class set** again; it is served from the cache.
 

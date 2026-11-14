@@ -4,7 +4,7 @@
 
 Spoken words are in quotes. Everything in «angle quotes» is a number you **read from `data/demo-results.json`** after the final real run (`npm run results`). Never say a number that isn't in that file, and never use rehearsal numbers (from `FAKE_LLM` or `--fake`). The results script refuses to write those to `data/`.
 
-**Where we demo from:** the live site (https://the-assess-to-intervene-colleague.vercel.app/). Click **Load class set**: it starts a new run that replays the real model answers shipped in `data/demo-cache/`, so it needs no model quota. The presentation laptop (`npm start`) is the backup and replays the same answers. Set `DEMO_PACE_MS=600` (Render → Environment, and `.env` on the laptop) so the run unfolds in about 20–30 seconds instead of under a second.
+**Where we demo from:** the live site (https://the-assess-to-intervene-colleague.vercel.app/). Click **Load class set**: it starts a new run that replays the real model answers shipped in `data/demo-cache/`, so it needs no model quota. The presentation laptop (`npm start`) is the backup and replays the same answers. Each saved answer is followed by a 600 ms pause (the default), so every agent's work unfolds on screen in about 35 seconds.
 
 **Emails are preview-only.** No mail account is set, so delivery drafts every email and shows it in the Outbox as "preview · not sent". Nothing reaches a real inbox. Say so; never claim an email arrived.
 
@@ -42,13 +42,13 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 ## 1:45 – 3:00 · Check and correct ← **the key moment**
 
-**On screen:** the correction log; **pink arcs** in the orbit (Reviewer → Marker). **Lesedi** opens script **L028** (a borderline essay the Reviewer rejected).
+**On screen:** the correction log; **pink arcs** in the orbit (Reviewer → Marker). **Lesedi** opens script **L027** (a borderline essay the Reviewer rejected).
 
 > "This is where it stops being a script and starts being a colleague.
 >
 > A separate Reviewer checks every batch. It re-marks a sample blind, without seeing the first mark, and compares the batch to the teacher's own anchor scripts.
 >
-> Here: essay L028 sits right on the pass line. The Marker gave it 58 percent. The Reviewer re-marked it blind, disagreed, and sent it back with its reasons, and the mark moved to 67. In this run the Reviewer rejected 7 marks and 11 marks changed.
+> Here: essay L027 sits right on the pass line. The Marker gave it 48 percent: a fail. The Reviewer re-marked it blind, disagreed, and sent it back with its reasons. The corrected mark is 51, a pass, and the teacher's own mark was 52. In this run the Reviewer rejected 10 marks and 12 marks changed.
 >
 > Every pink line is the colleague fixing its own work. And when a whole batch drifts towards the middle, the Reviewer sends it all the way back to the Planner, which re-calibrates against the teacher's anchors and marks it again.
 >
@@ -58,11 +58,11 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 ## 3:00 – 3:45 · Diagnose and practise
 
-**Lesedi:** open the **Learners** tab and a learner whose task shows **Rebuilt after review**.
+**Lesedi:** open the **Learners** tab and one of the three learners with a catch-up task (L024, L029 or L030 in the shipped run).
 
 > "A mark isn't the end. The Diagnostician finds each learner's root gap. For this learner, it's «gap».
 >
-> The Builder writes a short catch-up task aimed at exactly that gap, with an answer key. And a Checker reviews the task too. This one was sent back because it practised the wrong skill, and rebuilt."
+> The Builder writes a short catch-up task aimed at exactly that gap, with an answer key. And a Checker reviews every task before the teacher sees it: if a task practised the wrong skill, it would go back to the Builder with the reason."
 
 ## 3:45 – 4:15 · The teacher decides, then it delivers
 
@@ -76,12 +76,12 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 **On screen:** the closing slide with these lines and the live link. They come from `data/demo-results.json`, minus the accuracy and trap figures (see the checklist).
 
-> "From one goal: 30 scripts marked, 11 marks corrected after review, and 4 catch-up plans, all waiting for the teacher's approval.
+> "From one goal: 30 scripts marked, 12 marks corrected after review, and 3 catch-up plans, all waiting for the teacher's approval.
 >
 > It **reasons**: the Planner split 30 scripts into 6 batches, and re-planned when the marks drifted from the teacher's anchors.
-> It **self-corrects**: the Reviewer rejected 7 marks, and 11 marks changed.
-> It **executes**: 30 of 30 scripts marked, 4 tasks, a teacher brief and a marks workbook.
-> It **collaborates**: 7 agents, 48 hand-offs.
+> It **self-corrects**: the Reviewer rejected 10 marks, and 12 marks changed.
+> It **executes**: 30 of 30 scripts marked, 3 tasks, a teacher brief and a marks workbook.
+> It **collaborates**: 7 agents, 58 hand-offs.
 > And it **serves education**: every struggling learner got a checked catch-up task aimed at their gap.
 >
 > Next: handwritten scripts. Teachers photograph a page; two different models read it, and any word they don't agree on is marked illegible instead of guessed. It's built and switched off until we've tested it on real pages. After that, the same engine for candidate attorneys preparing for the LPC exam, where the pass rate in one paper was four percent.
@@ -97,12 +97,12 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 **Done (2026-11-14):** one clean real run, without billing (the app switches between free models when one is busy). Its model answers are committed in `data/demo-cache/` and loaded by the server at startup, so every **Load class set** replays it, on the live site and on any laptop, even after a redeploy. Numbers: `data/demo-results.json`.
 
 **What to say, and what not to (from `data/demo-results.json`):**
-- Say: 30/30 scripts marked; 7 marks rejected by the Reviewer, 11 changed; 1 recalibration by the Planner; 4 catch-up tasks for the 4 struggling learners; a teacher brief and a marks workbook.
-- Don't claim accuracy or trap numbers. In this run only 18/30 marks are within 10 points of the team's marks and 1/7 planted traps were caught. If asked: "the Reviewer catches disagreements and flags them for the teacher; matching a teacher's marks more closely is what we're improving next."
+- Say: 30/30 scripts marked; 10 marks rejected by the Reviewer, 12 changed; 1 recalibration by the Planner; 3 catch-up tasks for the 3 struggling learners; a teacher brief and a marks workbook.
+- Don't claim accuracy or trap numbers. In this run only 17/30 marks are within 10 points of the team's marks and 2/7 planted traps were caught. If asked: "the Reviewer catches disagreements and flags them for the teacher; matching a teacher's marks more closely is what we're improving next."
 
 **Before the pitch**
-- [ ] Render → Environment: `DEMO_PACE_MS=600`, so the replay is watchable. Saving restarts the server; that's fine, because the shipped answers are loaded again.
-- [ ] 10 minutes before: open the live site so Render wakes up (about a minute). Click **Load class set** once and check that it reaches the approval gate in about 30 s.
+- [ ] Nothing to set on Render: the server pauses 600 ms after each saved answer by default (`DEMO_PACE_MS`), so a new run unfolds agent by agent in about 35 seconds.
+- [ ] 10 minutes before: open the live site so Render wakes up (about a minute). Click **Load class set** once and check that it reaches the approval gate in about 35 s.
 - [ ] Backup laptop: `.env` `DEMO_PACE_MS=600`, `FAKE_LLM=0`, then `npm run build && npm start` and open http://localhost:3001. **Load class set** must reach the gate with no "llm:" lines in the server log.
 - [ ] Changing the demo inputs or the agent prompts changes the model calls, so the shipped answers no longer match. Then run `npm run warm`, copy `.cache/*.json` into `data/demo-cache/`, and run `npm run results`.
 - [ ] Record the **backup video** from a replayed real run (see `docs/demo-assets.md`). Never record a `FAKE_LLM` run.
@@ -112,17 +112,17 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 **If something goes wrong on stage**
 | Problem | Do this |
 | --- | --- |
-| Run stalls or errors | Lesedi clicks **New run** (on the run screen), then **Load class set**. It replays in about 30 s. Keep talking. |
+| Run stalls or errors | Lesedi clicks **New run** (on the run screen), then **Load class set**. It replays in about 35 s. Keep talking. |
 | Someone asks if the emails were sent | "Not today: it's in preview, so every email is drafted and shown here, and none was sent." Show the **Outbox**. |
 | Live site is down | Switch to the backup laptop (same run, same numbers). Last resort: Owethu plays the backup video and Junior narrates. |
 | A number on the slide looks wrong | Only say what's in `data/demo-results.json`. Skip the number rather than guess. |
 
 ## Rehearsal plan (3 runs)
 
-You can rehearse the flow and timing **now**, before the real run exists. Set `FAKE_LLM=1` and `DEMO_PACE_MS=600` in `.env`, then `npm run build && npm start`. The fake model makes the same kinds of mistakes, so L024 and the rebuilt tasks behave the same way. Never quote its numbers.
+Rehearse on the live site, or on a laptop with `FAKE_LLM=0` and `DEMO_PACE_MS=600` in `.env` (`npm run build && npm start`). Both replay the real run. Don't rehearse with `FAKE_LLM=1`: the fake model's run differs from the real one (for example, it rebuilds tasks, and the real run doesn't).
 
 The real run is already shipped, so you can rehearse with `FAKE_LLM=0` too: **Load class set** replays the real run with no model calls. Every rehearsal is a new run, and approving one never affects the next.
 
 1. **Run 1:** full 5 minutes with a timer, Lesedi driving. Note where you run long.
 2. **Run 2:** practise the two recoveries: **New run** → **Load class set** mid-demo, and switching to the backup laptop or video.
-3. **Run 3:** on the live site with `DEMO_PACE_MS=600`: clean run against the clock with the real numbers. Final cut: if over 5:00, shorten 1:00–1:45 first, never 1:45–3:00.
+3. **Run 3:** on the live site: clean run against the clock with the real numbers. Final cut: if over 5:00, shorten 1:00–1:45 first, never 1:45–3:00.
