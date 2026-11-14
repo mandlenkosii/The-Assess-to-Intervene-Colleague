@@ -1,6 +1,11 @@
 // The only input screen: one goal + files (or the built-in class set). No chat, no step-by-step instructions.
 import { useEffect, useState } from "react";
 import AgentScene from "./AgentScene.jsx";
+import HandwritingReview from "./HandwritingReview.jsx";
+import { fetchFeatures, shrinkPhoto } from "../lib/handwriting.js";
+
+// Shown only when the server has FEATURE_HANDWRITING on.
+const PHOTO_FIELD = { name: "photos", label: "Handwritten scripts", hint: "photos or scans, one per learner (name = learner id)", accept: ".jpg,.jpeg,.png,.pdf" };
 
 export const DEFAULT_GOAL =
   "Mark this class set against the rubric, check the marks, and prepare catch-up plans for anyone who is struggling.";
@@ -26,6 +31,15 @@ export default function UploadGoal({ onStarted }) {
   const [busy, setBusy] = useState(null); // "demo" | "upload" | null
   const [error, setError] = useState(null);
   const [latest, setLatest] = useState(null); // most recent run (e.g. the warmed demo run), to reopen instantly
+  const [handwriting, setHandwriting] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [review, setReview] = useState(null); // { jobId, photos } while the teacher checks transcriptions
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchFeatures().then((f) => { if (!cancelled) setHandwriting(f.handwriting); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +50,7 @@ export default function UploadGoal({ onStarted }) {
     return () => { cancelled = true; };
   }, []);
 
-  const ready = files.rubric?.length && files.scripts?.length && files.learners?.length;
+  const ready = files.rubric?.length && (files.scripts?.length || photos.length) && files.learners?.length;
 
   async function startDemo() {
     setBusy("demo"); setError(null);
@@ -50,10 +64,37 @@ export default function UploadGoal({ onStarted }) {
 
   async function startUpload(e) {
     e.preventDefault();
+    if (handwriting && photos.length) return startTranscription();
     setBusy("upload"); setError(null);
     const form = new FormData();
     form.append("goal", goal);
     for (const [name, list] of Object.entries(files)) for (const f of list) form.append(name, f);
+    try {
+      const { runId } = await postJson("/api/runs", { method: "POST", body: form });
+      onStarted(runId);
+    } catch (err) { setError(err.message); setBusy(null); }
+  }
+
+  // Handwritten scripts: transcribe first; the teacher checks the text, then marking starts as a normal upload.
+  async function startTranscription() {
+    setBusy("upload"); setError(null);
+    try {
+      const shrunk = await Promise.all(photos.map(shrinkPhoto));
+      const form = new FormData();
+      for (const f of shrunk) form.append("photos", f);
+      const { id } = await postJson("/api/transcriptions", { method: "POST", body: form });
+      setReview({ jobId: id, photos });
+      setBusy(null);
+    } catch (err) { setError(err.message); setBusy(null); }
+  }
+
+  async function startFromReview(transcribed) {
+    setBusy("upload"); setError(null);
+    const form = new FormData();
+    form.append("goal", goal);
+    for (const [name, list] of Object.entries(files)) for (const f of list) form.append(name, f);
+    for (const { id, text } of transcribed) form.append("scripts", new File([text], `${id}.txt`, { type: "text/plain" }));
+    form.append("transcriptionId", review.jobId);
     try {
       const { runId } = await postJson("/api/runs", { method: "POST", body: form });
       onStarted(runId);
@@ -76,6 +117,12 @@ export default function UploadGoal({ onStarted }) {
         <AgentScene ambient label="Seven agents orbiting the goal and passing work between them" />
       </div>
 
+      {review ? (
+        <HandwritingReview
+          jobId={review.jobId} photos={review.photos} busy={busy === "upload"} error={error}
+          onStart={startFromReview} onCancel={() => { setReview(null); setError(null); }}
+        />
+      ) : (
       <section className="card upload-card">
         <p className="eyebrow">Give your colleague one goal</p>
         <h2 className="upload-title">What should get done?</h2>
@@ -109,13 +156,21 @@ export default function UploadGoal({ onStarted }) {
                   />
                 </label>
               ))}
+              {handwriting && (
+                <label className="file-field">
+                  <span className="file-label">{PHOTO_FIELD.label}</span>
+                  <small className="muted">{photos.length ? `${photos.length} selected` : PHOTO_FIELD.hint}</small>
+                  <input type="file" name={PHOTO_FIELD.name} accept={PHOTO_FIELD.accept} multiple onChange={(e) => setPhotos([...e.target.files])} />
+                </label>
+              )}
             </div>
             <button className="btn-secondary" type="submit" disabled={!ready || Boolean(busy) || !goal.trim()}>
-              {busy === "upload" ? "Uploading…" : "Start with my files"}
+              {busy === "upload" ? "Uploading…" : handwriting && photos.length ? "Read handwriting" : "Start with my files"}
             </button>
           </form>
         </details>
       </section>
+      )}
       <footer>Human review stays in control. Nothing is sent before approval.</footer>
     </main>
   );

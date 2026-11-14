@@ -1,4 +1,10 @@
 import { Mark } from "@colleague/shared";
+import { env } from "../env.js";
+
+// Handwritten scripts (FEATURE_HANDWRITING): appended only when the flag is on AND the script has [illegible] words,
+// so typed scripts get exactly the same prompt as before.
+export const ILLEGIBLE_NOTE = "This script was transcribed from handwriting. [illegible] marks a word that could not be read: treat it as missing text, never as a mistake, do not penalise the learner for it, never quote it as evidence, and say in the feedback that some words could not be read and were not counted against them.";
+const illegibleNote = (text) => (env.FEATURE_HANDWRITING && /\[illegible\]/i.test(text) ? ` ${ILLEGIBLE_NOTE}` : "");
 
 const MIN_FEEDBACK_WORDS = 80;
 const MAX_FEEDBACK_WORDS = 150;
@@ -33,7 +39,7 @@ export async function markScript({
         "Copy evidence quotes exactly from the script; never invent or paraphrase a quote.",
         "Write learner-facing feedback in 80-150 words.",
         "Return script_id, scores, and feedback. Do not calculate total_pct; the application calculates it."
-      ].join(" ")
+      ].join(" ") + illegibleNote(text)
     },
     {
       role: "user",

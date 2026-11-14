@@ -6,6 +6,8 @@ import { env, ROOT } from "./env.js";
 import { createLLM } from "./llm.js";
 import { createRunStore } from "./runStore.js";
 import { runsRouter } from "./routes/runs.js";
+import { transcriptionsRouter } from "./routes/transcriptions.js";
+import { createTranscriptionStore } from "./transcription/session.js";
 import { createFakeLLM } from "./scripts/fakeLLM.js";
 
 function defaultLLM() {
@@ -16,14 +18,16 @@ function defaultLLM() {
   return createLLM({ log: console.log });
 }
 
-export function createApp({ store = createRunStore({ load: true }), llm = defaultLLM(), agents } = {}) {
+export function createApp({ store = createRunStore({ load: true }), llm = defaultLLM(), agents, transcriptions = createTranscriptionStore(), visionLLM = llm, thresholds } = {}) {
   const app = express();
   app.use(express.json({ limit: "5mb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, status: "ok", fake: env.FAKE_LLM, groq: Boolean(env.GROQ_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), llm: llm.stats ?? null });
   });
-  app.use("/api", runsRouter({ store, llm, agents }));
+  app.use("/api", runsRouter({ store, llm, agents, transcriptions }));
+  // Handwritten scripts (FEATURE_HANDWRITING): answers 404 unless the flag is on, except /api/features.
+  app.use("/api", transcriptionsRouter({ llm: visionLLM, transcriptions, thresholds }));
 
   // Production: serve the built web app from the same port.
   const dist = join(ROOT, "web", "dist");

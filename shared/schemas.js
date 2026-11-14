@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 export const STAGES = ["goal", "plan", "act", "check", "correct", "deliver"];
-export const AGENTS = ["planner", "marker", "calibrator", "diagnostician", "builder", "checker", "delivery", "teacher"];
+// "transcriber" was added for handwritten scripts; it only emits when FEATURE_HANDWRITING is on.
+export const AGENTS = ["planner", "marker", "calibrator", "diagnostician", "builder", "checker", "delivery", "teacher", "transcriber"];
 export const KINDS = [
   "stage", "log", "mark", "review", "correction", "diagnosis", "diagnoses",
   "task", "task_review", "email", "status", "error",
