@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 export const ROOT = fileURLToPath(new URL("..", import.meta.url));
 config({ path: fileURLToPath(new URL("../.env", import.meta.url)), quiet: true });
 
+const list = (value) => String(value).split(",").map((s) => s.trim()).filter(Boolean);
+
 export const env = {
   PORT: Number(process.env.PORT || 3001),
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
@@ -12,6 +14,10 @@ export const env = {
   GROQ_MODEL_SMALL: process.env.GROQ_MODEL_SMALL || "openai/gpt-oss-20b",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+  // Free-tier quotas are per model: when a model's DAILY quota is used up, these same-key models answer instead
+  // (in order) before falling back to the other provider. Empty = off.
+  GEMINI_EXTRA_MODELS: list(process.env.GEMINI_EXTRA_MODELS ?? "gemini-3.1-flash-lite,gemini-3-flash-preview,gemini-3.5-flash"),
+  GROQ_EXTRA_MODELS: list(process.env.GROQ_EXTRA_MODELS ?? "openai/gpt-oss-20b"),
   // Which provider answers first ("gemini" or "groq"); the other is the fallback.
   LLM_PRIMARY: (process.env.LLM_PRIMARY || "gemini").toLowerCase() === "groq" ? "groq" : "gemini",
   CONCURRENCY: Number(process.env.CONCURRENCY || 4),

@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { Mark, Task } from "@colleague/shared";
 import { createLLM } from "../llm.js";
+import { env } from "../env.js";
 import { createRunStore } from "../runStore.js";
 import { approveRun, diagnoseInCode, runColleague } from "../orchestrator.js";
 import { plan, recalibrate } from "../agents/planner.js";
@@ -85,6 +86,25 @@ test("llm: Gemini answers first by default and Groq is the fallback", async () =
   assert.deepEqual(await llm.json(msgs, { schema: Pong }), { ok: true });
   assert.deepEqual(calls, ["gemini", "groq"]);
   assert.equal(llm.stats.fallbacks, 1);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("llm: when a model's daily quota is used up, the next free model on the same key answers; it's then skipped", async () => {
+  const dir = tmp();
+  const models = [];
+  const quota = Object.assign(new Error("429 You exceeded your current quota"), { status: 429 });
+  const llm = createLLM({
+    cacheDir: dir, retryBaseMs: 1, primary: "gemini",
+    transport: {
+      gemini: async (body) => { models.push(body.model); if (body.model === env.GEMINI_MODEL) throw quota; return '{"ok":true}'; },
+      groq: async () => { throw new Error("groq should not be needed"); },
+    },
+  });
+  assert.deepEqual(await llm.json(msgs, { schema: Pong, cache: false }), { ok: true });
+  assert.deepEqual(models, [env.GEMINI_MODEL, env.GEMINI_EXTRA_MODELS[0]]); // no retries on a daily quota
+  await llm.json(msgs, { schema: Pong, cache: false });
+  assert.deepEqual(models.slice(2), [env.GEMINI_EXTRA_MODELS[0]]);        // the exhausted model is skipped
+  assert.equal(llm.stats.retries429, 0);
   rmSync(dir, { recursive: true, force: true });
 });
 
