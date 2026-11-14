@@ -1,6 +1,40 @@
 import { parse as parseCsv } from "csv-parse/sync";
+import { createRequire } from "node:module";
 import mammoth from "mammoth";
-import pdf from "pdf-parse";
+
+// pdf.js is loaded on first use, so a problem with it can only fail a PDF, never the server's startup.
+// It needs @napi-rs/canvas (a native binary) for drawing; a lockfile made on Windows can leave the Linux binary
+// out, and pdf.js then crashes on import. Text extraction never draws, so stand-ins for the drawing classes are enough.
+let pdfjs = null;
+function loadPdfjs() {
+  pdfjs ??= (async () => {
+    try {
+      createRequire(import.meta.url)("@napi-rs/canvas");
+    } catch {
+      globalThis.DOMMatrix ??= class DOMMatrix { constructor() { Object.assign(this, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }); } };
+      globalThis.ImageData ??= class ImageData {};
+      globalThis.Path2D ??= class Path2D {};
+    }
+    return import("pdfjs-dist/legacy/build/pdf.mjs");
+  })().catch((err) => { pdfjs = null; throw err; });
+  return pdfjs;
+}
+
+/** Text layer of a PDF, page by page. Image-only (scanned) PDFs give "". */
+export async function pdfToText(buffer) {
+  const { getDocument } = await loadPdfjs();
+  const doc = await getDocument({ data: new Uint8Array(buffer), isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
+  try {
+    const pages = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const { items } = await (await doc.getPage(n)).getTextContent();
+      pages.push(items.map((item) => (item.str ?? "") + (item.hasEOL ? "\n" : "")).join(""));
+    }
+    return pages.join("\n\n");
+  } finally {
+    await doc.destroy();
+  }
+}
 
 export function normalizeWhitespace(value) {
   return value.replace(/\s+/gu, " ").trim();
@@ -21,8 +55,9 @@ export async function toText(file) {
     return file.buffer.toString("utf8");
   }
   if (extension === ".pdf") {
-    const result = await pdf(file.buffer);
-    return result.text;
+    const text = await pdfToText(file.buffer);
+    if (!text.trim()) throw new Error(`${file.name} has no text layer (a scanned or photographed page); upload it as typed text instead`);
+    return text;
   }
   if (extension === ".docx") {
     const result = await mammoth.extractRawText({ buffer: file.buffer });
