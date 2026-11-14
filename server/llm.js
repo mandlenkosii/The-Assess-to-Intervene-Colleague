@@ -37,7 +37,36 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   const lead = order.find((name) => send[name]) ?? order[0];
   if (!groq && !gemini) log("llm: no GROQ_API_KEY or GEMINI_API_KEY set; only cached responses will work");
 
-  const stats = { calls: 0, cacheHits: 0, fallbacks: 0, repairs: 0, retries429: 0, ms: 0 };
+  const stats = { calls: 0, cacheHits: 0, fallbacks: 0, repairs: 0, retries429: 0, ms: 0, modelSwitches: 0 };
+
+  // Daily-quota ladder: free quotas are per model, so when one model's daily quota is gone the provider's next model
+  // answers. Only a *daily* quota error moves down the ladder; per-minute 429s are retried exactly as before.
+  // An exhausted model is skipped for an hour (quotas reset once a day), so a run doesn't wait on it 170 times.
+  const exhausted = new Map();
+  const isDailyQuota = (err) => err?.status === 429 && /quota|per day|\bTPD\b|\bRPD\b/i.test(String(err?.message ?? ""));
+  const ladderFor = (name, tier) => {
+    const first = modelFor(name, tier);
+    if (tier === "vision") return [first];
+    const extras = name === "gemini" ? env.GEMINI_EXTRA_MODELS : env.GROQ_EXTRA_MODELS;
+    return [...new Set([first, ...extras])];
+  };
+  async function callLadder(name, sendFn, tier, messages, temperature, maxTokens) {
+    const ladder = ladderFor(name, tier);
+    const live = ladder.filter((m) => !(exhausted.get(m) > Date.now()));
+    let lastErr;
+    for (const [i, model] of (live.length ? live : ladder.slice(-1)).entries()) {
+      if (i) { stats.modelSwitches++; log(`llm: ${name} switching to ${model}`); }
+      try {
+        return await callProvider(name, sendFn, model, messages, temperature, maxTokens);
+      } catch (err) {
+        lastErr = err;
+        if (!isDailyQuota(err)) throw err;
+        exhausted.set(model, Date.now() + 60 * 60 * 1000);
+        log(`llm: ${name} ${model} daily quota used up`);
+      }
+    }
+    throw lastErr;
+  }
 
   async function callProvider(name, send, model, messages, temperature, maxTokens) {
     const body = { model, messages, temperature, max_tokens: maxTokens };
@@ -54,7 +83,7 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
       } catch (err) {
         const status = err?.status;
         const retryable = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError";
-        if (!retryable || attempt >= 2) throw err;
+        if (!retryable || attempt >= 2 || isDailyQuota(err)) throw err; // a daily quota won't come back in seconds
         if (status === 429) stats.retries429++;
         const header = Number(err?.headers?.["retry-after"]);
         const wait = Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 15000) : retryBaseMs * 2 ** attempt;
@@ -77,7 +106,7 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
       if (!send[name]) continue;
       if (tried++) stats.fallbacks++;
       try {
-        return await callProvider(name, send[name], modelFor(name, tier), messages, temperature, maxTokens);
+        return await callLadder(name, send[name], tier, messages, temperature, maxTokens);
       } catch (err) {
         lastErr = err;
         const next = order.find((n) => n !== name && send[n]);
