@@ -1,10 +1,19 @@
-import { Mark } from "@colleague/shared";
+import { CriterionScore, Mark, promptHints } from "@colleague/shared";
+import { z } from "zod";
 import { env } from "../env.js";
 
 // Handwritten scripts (FEATURE_HANDWRITING): appended only when the flag is on AND the script has [illegible] words,
 // so typed scripts get exactly the same prompt as before.
 export const ILLEGIBLE_NOTE = "This script was transcribed from handwriting. [illegible] marks a word that could not be read: treat it as missing text, never as a mistake, do not penalise the learner for it, never quote it as evidence, and say in the feedback that some words could not be read and were not counted against them.";
 const illegibleNote = (text) => (env.FEATURE_HANDWRITING && /\[illegible\]/i.test(text) ? ` ${ILLEGIBLE_NOTE}` : "");
+
+// What the model must return. Some models drop "reason" from a score; that alone shouldn't fail the whole script,
+// so a missing reason is filled from the evidence below (the Reviewer still checks the score and the quote).
+const MarkerOutput = Mark.omit({ total_pct: true, attempt: true, status: true }).extend({
+  scores: CriterionScore.extend({ reason: z.string().optional() }).array().min(1),
+});
+
+const SHAPE = promptHints.Mark.replace(' "total_pct": number,', "");
 
 const MIN_FEEDBACK_WORDS = 80;
 const MAX_FEEDBACK_WORDS = 150;
@@ -38,7 +47,8 @@ export async function markScript({
         "You are a careful Grade 10 English marker. Score every rubric criterion using only evidence in the script.",
         "Copy evidence quotes exactly from the script; never invent or paraphrase a quote.",
         "Write learner-facing feedback in 80-150 words.",
-        "Return script_id, scores, and feedback. Do not calculate total_pct; the application calculates it."
+        "Return script_id, scores, and feedback. Do not calculate total_pct; the application calculates it.",
+        `Return exactly this JSON shape, with one score per rubric criterion, each with a short reason: ${SHAPE}`
       ].join(" ") + illegibleNote(text)
     },
     {
@@ -52,14 +62,17 @@ export async function markScript({
       })
     }
   ], {
-    schema: Mark.omit({ total_pct: true, attempt: true, status: true }),
+    schema: MarkerOutput,
     tier: "large",
     temperature: 0.2
   });
 
   const parsed = Mark.omit({ total_pct: true, attempt: true, status: true }).parse({
     script_id: scriptId,
-    scores: modelOutput.scores,
+    scores: modelOutput.scores.map((score) => ({
+      ...score,
+      reason: score.reason?.trim() || `Scored ${score.score}/${score.max_score} on the evidence quoted.`
+    })),
     feedback: modelOutput.feedback
   });
   if (parsed.scores.length !== rubric.criteria.length) {

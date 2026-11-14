@@ -128,6 +128,23 @@ test("marker computes totals and emits the event instead of trusting model arith
   assert.equal(events[0].data.mark.total_pct, 50);
 });
 
+test("marker still marks a script when the model leaves out a score's reason, and tells the model the shape", async () => {
+  const response = {
+    script_id: "script_02",
+    scores: rubric.criteria.map((criterion) => ({ criterion: criterion.name, score: 8, max_score: criterion.max_score, evidence: "a fair policy" })),
+    feedback: Array.from({ length: 85 }, () => "work").join(" ")
+  };
+  let prompt = "";
+  const mark = await markScript({ scriptId: "script_02", text: "A fair policy can support learners.", rubric, anchors: {} }, {
+    // Validate with the schema the marker passes, the way the real llm.json does.
+    llm: { json: async (messages, { schema }) => { prompt = messages[0].content; return schema.parse(response); } }
+  });
+  assert.equal(mark.status, "ok");
+  assert.ok(mark.scores.every((score) => score.reason.length > 0));
+  assert.match(prompt, /"reason": string/);
+  assert.doesNotMatch(prompt, /total_pct": number/);
+});
+
 test("parsing accepts text files and reports unsupported types and malformed learner rows", async () => {
   assert.equal(await toText({ name: "script.txt", buffer: Buffer.from("Typed response") }), "Typed response");
   await assert.rejects(
