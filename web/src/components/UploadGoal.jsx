@@ -103,11 +103,6 @@ export default function UploadGoal({ onStarted }) {
 
   return (
     <main className="app-shell upload-shell">
-      <header className="topbar">
-        <a className="brand" href="/">Assess-to-Intervene <span>Colleague</span></a>
-        <div className="status-pill"><span className="status-dot" /> Ready for a class</div>
-      </header>
-
       <section className="upload-hero">
         <p className="eyebrow">Assess · Diagnose · Intervene</p>
         <h1>One goal. <span className="hero-highlight">Seven agents.</span></h1>

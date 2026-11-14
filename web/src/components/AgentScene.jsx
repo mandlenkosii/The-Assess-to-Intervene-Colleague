@@ -518,11 +518,6 @@ function AgentScene({ activeAgent, approved = false, isRunning = false, ambient 
         <span className="agent-label core-label" ref={coreLabelRef}><b>Goal</b></span>
         <span className={`agent-label gate-label${approved ? " is-open" : ""}`} ref={gateLabelRef}><b>Teacher approval</b></span>
       </div>
-      <ul className="scene-legend" aria-hidden="true">
-        <li><i className="dot dot-gold" />Hand-off</li>
-        <li><i className="dot dot-violet" />Coordination</li>
-        <li><i className="dot dot-pink" />Correction</li>
-      </ul>
     </div>
   );
 }

@@ -3,8 +3,7 @@ import AgentScene from "./components/AgentScene.jsx";
 import ApprovePanel from "./components/ApprovePanel.jsx";
 import LearnerCard from "./components/LearnerCard.jsx";
 import Outbox from "./components/Outbox.jsx";
-import { statusLabel } from "./lib/useRunEvents.js";
-import { CorrectionLog, Trace } from "./components/index.js";
+import { CorrectionLog } from "./components/index.js";
 
 const stages = ["Goal", "Plan", "Act", "Check", "Correct", "Deliver"];
 const severityOrder = { needs_help: 0, watch: 1, on_track: 2 };
@@ -59,7 +58,6 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   });
   const lastAgent = events.at(-1)?.agent;
   const activeAgent = agentLabels[String(lastAgent ?? "").toLowerCase()] ?? lastAgent;
-  const runStatus = run?.status ?? "Ready for a class";
   const isRunning = runningStatuses.has(run?.status);
   // Stage bar: where the colleague is now, and how far it has got (corrections loop back, so "reached" is the furthest seen).
   const currentStage = run?.status === "done" ? -1 : stages.findIndex((stage) => stage.toLowerCase() === events.at(-1)?.stage);
@@ -71,11 +69,6 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="/">Assess-to-Intervene <span>Colleague</span></a>
-        <div className={`status-pill${isRunning ? " is-running" : ""}`} aria-live="polite"><span className="status-dot" /> {statusLabel(run) ?? runStatus}</div>
-      </header>
-
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">A second pair of eyes, and a next step</p>
@@ -99,8 +92,6 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
       </nav>
 
       <section className="workspace-grid">
-        <Trace events={events} />
-
         <section className="card main-panel">
           <div className="panel-heading"><div><p className="eyebrow">Workspace</p><h2>Your class</h2></div><span className="count-label">{run ? `${learnerRecords.length} learners` : "No run loaded"}</span></div>
           <div className="tabs" role="tablist" aria-label="Class workspace">
