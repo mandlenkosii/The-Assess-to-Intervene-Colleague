@@ -263,3 +263,19 @@ test("results are stored in learner order however parallel work finishes (repeat
   assert.deepEqual(Object.keys(run.diagnoses), ["L001", "L002", "L003", "L004", "L005", "L006"]);
   assert.deepEqual(Object.keys(run.tasks), ["L001", "L003", "L005"]);
 });
+
+test("llm: seedCache copies shipped demo answers into the cache without overwriting existing ones", async () => {
+  const { seedCache } = await import("../llm.js");
+  const { writeFileSync, readFileSync, mkdirSync } = await import("node:fs");
+  const from = tmp();
+  const to = join(tmp(), "cache");
+  writeFileSync(join(from, "a.json"), '{"v":"shipped"}');
+  writeFileSync(join(from, "b.json"), '{"v":"shipped"}');
+  writeFileSync(join(from, "notes.txt"), "ignored");
+  mkdirSync(to, { recursive: true });
+  writeFileSync(join(to, "b.json"), '{"v":"local"}');
+  assert.equal(await seedCache({ from, to }), 1);
+  assert.equal(readFileSync(join(to, "a.json"), "utf8"), '{"v":"shipped"}');
+  assert.equal(readFileSync(join(to, "b.json"), "utf8"), '{"v":"local"}');
+  assert.equal(await seedCache({ from: join(from, "missing"), to }), 0);
+});

@@ -40,7 +40,7 @@ The `⇄` loops are the self-correction: work that fails review goes back and is
 
 ### What the teacher sees
 
-- **Goal screen.** A dark 3D orbit (three.js) of the seven agents around the goal, with animated packets showing hand-offs between them. The goal box, **Load class set** (the built-in Grade 10 English set: 30 essays, a rubric and 3 teacher-marked anchors), **Open last run**, and an optional upload for your own files.
+- **Goal screen.** A dark 3D orbit (three.js) of the seven agents around the goal, with animated packets showing hand-offs between them. The goal box, **Load class set** (the built-in Grade 10 English set: 30 essays, a rubric and 3 teacher-marked anchors) and an optional upload for your own files. Every click starts a new run; **New run** on the run screen goes back here.
 - **Live run.** The orbit lights up the agent that is working. A stage rail shows progress, and a live trace streams each agent's steps as they happen (server-sent events, which resume after a dropped connection).
 - **Learners tab.** Marks per learner with rubric evidence (exact quotes highlighted), "needs teacher review" flags, and the correction log.
 - **Approval tab.** The teacher brief, the option to exclude learners from delivery, and **Approve delivery**.
@@ -61,7 +61,7 @@ If `SMTP_USER` and `SMTP_PASS` are not set, nothing is emailed. Delivery drafts 
 4. When the run reaches **awaiting approval**, read the brief in the **Approval** tab, exclude anyone you want, and click **Approve delivery**.
 5. Check the **Outbox**, and download the brief or the marks workbook.
 
-**Open last run** reopens the most recent run. Render's free disk is wiped on every restart or redeploy, so warm a fresh run before you present.
+Render's free disk is wiped on every restart or redeploy, so the real model answers for the demo class are committed in `data/demo-cache/` and copied into the cache at startup. **Load class set** replays them with no model quota.
 
 **Your own class:** expand the file section on the goal screen and upload:
 - a rubric or memo (`.json`, `.txt`, `.md`, `.pdf`, `.docx`);
@@ -155,7 +155,7 @@ All model calls go through `server/llm.js`. **Gemini is the primary model and Gr
 
 1. Wake the API (open the live site or `/api/health`), then load the class set once to warm the cache. Locally, use `npm run warm`, then `npm run results` for the pitch numbers.
 2. Set `DEMO_PACE_MS=600` so the warmed run unfolds on screen in about 20–30 seconds.
-3. Present with **Load class set**, or with **Open last run** for the warmed run.
+3. Present with **Load class set**. It replays the shipped real run (`data/demo-cache/`).
 4. If a restart cuts a run off, it is marked interrupted. Click **Load class set** again; it is served from the cache.
 
 ## Layout

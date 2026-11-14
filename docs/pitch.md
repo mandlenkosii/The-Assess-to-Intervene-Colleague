@@ -4,7 +4,7 @@
 
 Spoken words are in quotes. Everything in «angle quotes» is a number you **read from `data/demo-results.json`** after the final real run (`npm run results`). Never say a number that isn't in that file, and never use rehearsal numbers (from `FAKE_LLM` or `--fake`). The results script refuses to write those to `data/`.
 
-**Where we demo from:** the **presentation laptop**, running locally (`npm start`) on the **warmed, cached run** with `DEMO_PACE_MS=600`. It unfolds in about 25–30 seconds and needs no network and no model quota. The live site (https://the-assess-to-intervene-colleague.vercel.app/) goes on the closing slide, and Owethu keeps it open as a second backup. Don't demo from the live site: Render's free tier sleeps after 15 minutes and loses its runs on every redeploy.
+**Where we demo from:** the live site (https://the-assess-to-intervene-colleague.vercel.app/). Click **Load class set**: it starts a new run that replays the real model answers shipped in `data/demo-cache/`, so it needs no model quota. The presentation laptop (`npm start`) is the backup and replays the same answers. Set `DEMO_PACE_MS=600` (Render → Environment, and `.env` on the laptop) so the run unfolds in about 20–30 seconds instead of under a second.
 
 **Emails are preview-only.** No mail account is set, so delivery drafts every email and shows it in the Outbox as "preview · not sent". Nothing reaches a real inbox. Say so; never claim an email arrived.
 
@@ -42,19 +42,19 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 ## 1:45 – 3:00 · Check and correct ← **the key moment**
 
-**On screen:** the correction log; **pink arcs** in the orbit (Reviewer → Marker). **Lesedi** opens script **L024** (the off-topic essay).
+**On screen:** the correction log; **pink arcs** in the orbit (Reviewer → Marker). **Lesedi** opens script **L028** (a borderline essay the Reviewer rejected).
 
 > "This is where it stops being a script and starts being a colleague.
 >
 > A separate Reviewer checks every batch. It re-marks a sample blind, without seeing the first mark, and compares the batch to the teacher's own anchor scripts.
 >
-> Here: essay L024 is long, fluent, and about school uniforms, not cellphones. The Marker gave it «L024 first_pct» percent. The Reviewer caught it. The quote didn't exist in the essay. So it sent it back, with the reason, and the Marker corrected it to «L024 final_pct».
+> Here: essay L028 sits right on the pass line. The Marker gave it 58 percent. The Reviewer re-marked it blind, disagreed, and sent it back with its reasons, and the mark moved to 67. In this run the Reviewer rejected 7 marks and 11 marks changed.
 >
 > Every pink line is the colleague fixing its own work. And when a whole batch drifts towards the middle, the Reviewer sends it all the way back to the Planner, which re-calibrates against the teacher's anchors and marks it again.
 >
 > When it still can't agree with itself after three tries, it doesn't guess. It flags the script for the teacher."
 
-*If the run shows more or different corrections, name the one on screen, not this one. Only mention the Planner recalibration if it happened in this run (a Reviewer → Planner pink arc and a "recalibrated" line in the correction log).*
+*These numbers are from the shipped run (`data/demo-results.json`); every Load class set replays it, so they're what appears on screen. If the screen ever shows something different, name what's on screen. Only mention the Planner recalibration if it happened in this run (a Reviewer → Planner pink arc and a "recalibrated" line in the correction log).*
 
 ## 3:00 – 3:45 · Diagnose and practise
 
@@ -74,15 +74,15 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 ## 4:15 – 5:00 · Close: real numbers, five criteria
 
-**On screen:** the closing slide, filled from `npm run results` (the script prints these lines ready to paste), with the live link.
+**On screen:** the closing slide with these lines and the live link. They come from `data/demo-results.json`, minus the accuracy and trap figures (see the checklist).
 
-> "From one goal: «closing_line»
+> "From one goal: 30 scripts marked, 11 marks corrected after review, and 4 catch-up plans, all waiting for the teacher's approval.
 >
-> It **reasons**: «criteria.reasons»
-> It **self-corrects**: «criteria.self_corrects»
-> It **executes**: «criteria.executes»
-> It **collaborates**: «criteria.collaborates»
-> And it **serves education**: «criteria.serves_education»
+> It **reasons**: the Planner split 30 scripts into 6 batches, and re-planned when the marks drifted from the teacher's anchors.
+> It **self-corrects**: the Reviewer rejected 7 marks, and 11 marks changed.
+> It **executes**: 30 of 30 scripts marked, 4 tasks, a teacher brief and a marks workbook.
+> It **collaborates**: 7 agents, 48 hand-offs.
+> And it **serves education**: every struggling learner got a checked catch-up task aimed at their gap.
 >
 > Next: handwritten scripts. Teachers photograph a page; two different models read it, and any word they don't agree on is marked illegible instead of guessed. It's built and switched off until we've tested it on real pages. After that, the same engine for candidate attorneys preparing for the LPC exam, where the pass rate in one paper was four percent.
 >
@@ -94,50 +94,35 @@ Spoken words are in quotes. Everything in «angle quotes» is a number you **rea
 
 ## Readiness checklist
 
-**Blocker: one clean real run (Junior, as early as possible)**
+**Done (2026-11-14):** one clean real run, without billing (the app switches between free models when one is busy). Its model answers are committed in `data/demo-cache/` and loaded by the server at startup, so every **Load class set** replays it, on the live site and on any laptop, even after a redeploy. Numbers: `data/demo-results.json`.
 
-The free Gemini quota can't finish a full run (about 170 model calls). When it runs out, marks come back "needs teacher" and no catch-up tasks are built. On 2026-11-14 the daily Gemini quota was already used up, and Groq alone is too slow.
+**What to say, and what not to (from `data/demo-results.json`):**
+- Say: 30/30 scripts marked; 7 marks rejected by the Reviewer, 11 changed; 1 recalibration by the Planner; 4 catch-up tasks for the 4 struggling learners; a teacher brief and a marks workbook.
+- Don't claim accuracy or trap numbers. In this run only 18/30 marks are within 10 points of the team's marks and 1/7 planted traps were caught. If asked: "the Reviewer catches disagreements and flags them for the teacher; matching a teacher's marks more closely is what we're improving next."
 
-- [ ] **Turn on billing for the Gemini key** in Google AI Studio. A run is about 170 short calls to `gemini-3.5-flash-lite`; check the cost on AI Studio's pricing page. *Or* wait for the daily quota to reset (midnight Pacific time, which is 10:00 SAST in November), knowing a free-tier run may still come back degraded.
-- [ ] With billing on: `.env` `CONCURRENCY=4`, `DEMO_PACE_MS=0`, `FAKE_LLM=0`. `npm run ping` answers **without** "falling back to groq".
-- [ ] `npm run warm` passes (run 2 under 60 s and ≥95% cached). Note the run id it prints.
-- [ ] Open the warmed run and check it's demo-quality:
-  - most marks are `ok`, not "needs teacher";
-  - there are catch-up tasks;
-  - L024 shows a correction;
-  - at least one task shows **Rebuilt after review**.
-  If any of these fail, run `npm run warm` again. Successful answers stay cached, so each pass only redoes what failed.
-- [ ] `npm run results` writes `data/demo-results.json` (not a rehearsal). Fill the «» numbers into the closing slide and this script.
-- [ ] Record the **backup video** from this real run (see `docs/demo-assets.md`). Never record a `FAKE_LLM` run as the backup: it isn't the product's real output.
-- [ ] Copy `.cache/` and `runs/` to the presentation laptop if it isn't the machine that warmed. Both are gitignored, so they aren't in the repo.
-
-**Live site as backup (Owethu, after the warm)**
-- [ ] Don't merge to `main` from here on. A merge redeploys Render and wipes its runs.
-- [ ] On the live site, click **Load class set** once and let it reach the approval gate. If Render uses the same Gemini key with billing on, this fills Render's own cache.
-- [ ] 10 minutes before: open the live site so Render wakes up, then check **Open last run**.
-
-**30 minutes before (everyone)**
-- [ ] `.env`: `DEMO_PACE_MS=600`, `FAKE_LLM=0`. Then `npm run build && npm start`, and open http://localhost:3001.
-- [ ] **Load class set** once. It must reach the approval gate in about 30 s with no live calls (the server log shows no "llm:" lines). Then reload the start screen.
-- [ ] **Open last run** works (reopens the warmed run at the approval gate).
-- [ ] Don't approve anything during these checks. **Open last run** opens the most recent run; if it's been approved, it opens a finished run. If someone approved, click **Load class set** once more and let it reach the gate.
+**Before the pitch**
+- [ ] Render → Environment: `DEMO_PACE_MS=600`, so the replay is watchable. Saving restarts the server; that's fine, because the shipped answers are loaded again.
+- [ ] 10 minutes before: open the live site so Render wakes up (about a minute). Click **Load class set** once and check that it reaches the approval gate in about 30 s.
+- [ ] Backup laptop: `.env` `DEMO_PACE_MS=600`, `FAKE_LLM=0`, then `npm run build && npm start` and open http://localhost:3001. **Load class set** must reach the gate with no "llm:" lines in the server log.
+- [ ] Changing the demo inputs or the agent prompts changes the model calls, so the shipped answers no longer match. Then run `npm run warm`, copy `.cache/*.json` into `data/demo-cache/`, and run `npm run results`.
+- [ ] Record the **backup video** from a replayed real run (see `docs/demo-assets.md`). Never record a `FAKE_LLM` run.
 - [ ] **Backup video** open in a browser tab (Owethu), muted, at 0:00.
 - [ ] Laptop at 1280×720, notifications off, browser zoom at 100%, the terminal hidden.
 
 **If something goes wrong on stage**
 | Problem | Do this |
 | --- | --- |
-| Run stalls or errors | Lesedi clicks **Open last run** (the warmed run, already at the gate). Keep talking: "here's the run we did earlier." |
+| Run stalls or errors | Lesedi clicks **New run** (on the run screen), then **Load class set**. It replays in about 30 s. Keep talking. |
 | Someone asks if the emails were sent | "Not today: it's in preview, so every email is drafted and shown here, and none was sent." Show the **Outbox**. |
-| Laptop or app fails | Owethu plays the backup video, or opens the live site and **Open last run**. Junior narrates over it. |
+| Live site is down | Switch to the backup laptop (same run, same numbers). Last resort: Owethu plays the backup video and Junior narrates. |
 | A number on the slide looks wrong | Only say what's in `data/demo-results.json`. Skip the number rather than guess. |
 
 ## Rehearsal plan (3 runs)
 
 You can rehearse the flow and timing **now**, before the real run exists. Set `FAKE_LLM=1` and `DEMO_PACE_MS=600` in `.env`, then `npm run build && npm start`. The fake model makes the same kinds of mistakes, so L024 and the rebuilt tasks behave the same way. Never quote its numbers.
 
-Rehearsal runs are saved like real ones, so **Open last run** will open a fake run until the real run is newer. Do the real `npm run warm` *after* rehearsing. Once it's warmed, rehearse with `FAKE_LLM=0`: the warmed cache replays the real run with no model calls.
+The real run is already shipped, so you can rehearse with `FAKE_LLM=0` too: **Load class set** replays the real run with no model calls. Every rehearsal is a new run, and approving one never affects the next.
 
 1. **Run 1:** full 5 minutes with a timer, Lesedi driving. Note where you run long.
-2. **Run 2:** practise the two recoveries: **Open last run** mid-demo, and switching to the backup video.
-3. **Run 3:** after the real run is warmed: clean run against the clock with the real numbers. Final cut: if over 5:00, shorten 1:00–1:45 first, never 1:45–3:00.
+2. **Run 2:** practise the two recoveries: **New run** → **Load class set** mid-demo, and switching to the backup laptop or video.
+3. **Run 3:** on the live site with `DEMO_PACE_MS=600`: clean run against the clock with the real numbers. Final cut: if over 5:00, shorten 1:00–1:45 first, never 1:45–3:00.

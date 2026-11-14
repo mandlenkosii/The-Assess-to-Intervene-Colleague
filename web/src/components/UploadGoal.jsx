@@ -30,7 +30,6 @@ export default function UploadGoal({ onStarted }) {
   const [files, setFiles] = useState({});
   const [busy, setBusy] = useState(null); // "demo" | "upload" | null
   const [error, setError] = useState(null);
-  const [latest, setLatest] = useState(null); // most recent run (e.g. the warmed demo run), to reopen instantly
   const [handwriting, setHandwriting] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [review, setReview] = useState(null); // { jobId, photos } while the teacher checks transcriptions
@@ -38,15 +37,6 @@ export default function UploadGoal({ onStarted }) {
   useEffect(() => {
     let cancelled = false;
     fetchFeatures().then((f) => { if (!cancelled) setHandwriting(f.handwriting); });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/runs/latest")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((run) => { if (!cancelled && run?.id && run.status !== "error") setLatest(run); })
-      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -128,11 +118,6 @@ export default function UploadGoal({ onStarted }) {
             {busy === "demo" ? "Starting…" : <>Load class set <span aria-hidden="true">→</span></>}
           </button>
           <span className="muted">Grade 10 English · 30 essays, rubric and 3 teacher-marked anchors</span>
-          {latest && (
-            <button className="btn-secondary" type="button" onClick={() => onStarted(latest.id)} disabled={Boolean(busy)}>
-              Open last run <span className="muted">({latest.status === "awaiting_approval" ? "waiting for approval" : latest.status})</span>
-            </button>
-          )}
         </div>
 
         {error && <p className="upload-error" role="alert">{error}</p>}
