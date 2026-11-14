@@ -118,7 +118,14 @@ async function textReader() {
   return async (file) => {
     const ext = extname(file.originalname).toLowerCase();
     if ([".txt", ".md", ".json", ".csv", ""].includes(ext)) return file.buffer.toString("utf8");
-    if (parse?.toText) return parse.toText(file);
+    // parse.toText takes { name, buffer }; multer gives { originalname, buffer }.
+    if (parse?.toText) {
+      try {
+        return await parse.toText({ name: file.originalname, buffer: file.buffer });
+      } catch (err) {
+        throw new InputError(`${file.originalname}: couldn't read this file (${err.message})`);
+      }
+    }
     throw new InputError(`${file.originalname}: only .txt/.json/.csv are supported until parse.js lands`);
   };
 }
