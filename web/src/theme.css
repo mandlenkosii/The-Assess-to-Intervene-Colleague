@@ -301,3 +301,7 @@ footer { color: var(--muted); text-align: center; font-size: 12px; padding: var(
   .status-pill.is-running .status-dot { box-shadow: 0 0 0 3px rgba(242, 199, 92, .35); }
   .btn-primary:not(:disabled):hover, .btn-primary:not(:disabled):hover span { transform: none; }
 }
+
+/* "New run" link on the run screen: back to the goal screen to start a fresh class run. */
+.panel-heading-actions { display: flex; align-items: center; gap: var(--space-1, 8px); flex-wrap: wrap; justify-content: flex-end; }
+.new-run-link { text-decoration: none; }

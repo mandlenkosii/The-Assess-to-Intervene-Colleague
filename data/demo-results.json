@@ -1,0 +1,140 @@
+{
+  "run_id": "run_mwg7rs16_5e35",
+  "model": "gemini:gemini-3.5-flash-lite",
+  "measured_at": "2026-11-14T09:43:47.524Z",
+  "scripts": {
+    "total": 30,
+    "marked": 30,
+    "needs_teacher": 3
+  },
+  "accuracy": {
+    "tolerance_points": 10,
+    "within": 18,
+    "compared": 30,
+    "target": 27
+  },
+  "evidence": {
+    "scores": 150,
+    "verbatim": 149
+  },
+  "corrections": {
+    "marks_changed": 11,
+    "reviewer_rejections": 7,
+    "replans": 1,
+    "tasks_rebuilt": 0,
+    "total_events": 18
+  },
+  "traps": {
+    "handled": 1,
+    "total": 7,
+    "detail": [
+      {
+        "script_id": "L024",
+        "trap": "long_off_topic",
+        "expected_review": "rejected",
+        "expected_pct": 45,
+        "first_pct": 17,
+        "final_pct": 17,
+        "rejected_by_reviewer": false,
+        "handled": false
+      },
+      {
+        "script_id": "L025",
+        "trap": "short_excellent",
+        "expected_review": "accepted",
+        "expected_pct": 88,
+        "first_pct": 44,
+        "final_pct": 37,
+        "rejected_by_reviewer": true,
+        "handled": false
+      },
+      {
+        "script_id": "L026",
+        "trap": "fluent_no_evidence",
+        "expected_review": "rejected",
+        "expected_pct": 68,
+        "first_pct": 61,
+        "final_pct": 61,
+        "rejected_by_reviewer": false,
+        "handled": false
+      },
+      {
+        "script_id": "L027",
+        "trap": "borderline",
+        "expected_review": "blind_remark",
+        "expected_pct": 52,
+        "first_pct": 53,
+        "final_pct": 55,
+        "rejected_by_reviewer": true,
+        "handled": true
+      },
+      {
+        "script_id": "L028",
+        "trap": "borderline",
+        "expected_review": "blind_remark",
+        "expected_pct": 56,
+        "first_pct": 58,
+        "final_pct": 67,
+        "rejected_by_reviewer": true,
+        "handled": false
+      },
+      {
+        "script_id": "L029",
+        "trap": "weak_structure_only",
+        "expected_review": "accepted",
+        "expected_pct": 56,
+        "first_pct": 44,
+        "final_pct": 44,
+        "rejected_by_reviewer": false,
+        "handled": false
+      },
+      {
+        "script_id": "L030",
+        "trap": "weak_structure_only",
+        "expected_review": "accepted",
+        "expected_pct": 52,
+        "first_pct": 36,
+        "final_pct": 36,
+        "rejected_by_reviewer": false,
+        "handled": false
+      }
+    ]
+  },
+  "intervention": {
+    "struggling": 4,
+    "tasks": 4,
+    "tasks_checked_ok": 4,
+    "class_gaps": [
+      "evidence",
+      "argument"
+    ]
+  },
+  "delivery": {
+    "approved": false,
+    "sent": 0,
+    "failed": 0,
+    "skipped": 0,
+    "preview": 0
+  },
+  "timing_seconds": {
+    "to_approval": 0.6,
+    "total": 0.6
+  },
+  "model_calls": {
+    "live": 0,
+    "from_cache": 84,
+    "fallbacks": 0
+  },
+  "collaboration": {
+    "agents": 7,
+    "handoffs": 48
+  },
+  "criteria": {
+    "reasons": "Planner split 30 scripts into 6 batches and re-planned 1× when marks drifted from the teacher's anchors.",
+    "self_corrects": "7 marks rejected by the reviewer, 11 changed, 0 catch-up tasks rebuilt; 1/7 planted traps handled.",
+    "executes": "30/30 scripts marked, 4 tasks, a teacher brief and marks.xlsx.",
+    "collaborates": "7 agents, 48 handoffs, every one in the live trace.",
+    "serves_education": "4/4 struggling learners got a checked catch-up task aimed at their gap; accuracy 18/30 within 10 points of the team's marks."
+  },
+  "closing_line": "30 scripts, 11 marks corrected, 1 of 7 traps caught, 4 catch-up plans, 18 of 30 within 10 points of a teacher."
+}

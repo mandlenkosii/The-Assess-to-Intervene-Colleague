@@ -3,11 +3,26 @@
 //       → one "fix your JSON" repair turn → throw.
 import OpenAI from "openai";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env, ROOT } from "./env.js";
 
 export const CACHE_DIR = join(ROOT, ".cache");
+// Real model answers for the demo class, committed so a fresh deploy (Render wipes .cache/) can replay the demo
+// without spending free-tier quota. Copied into the cache at startup; existing cache files are never overwritten.
+export const DEMO_CACHE_DIR = join(ROOT, "data", "demo-cache");
+
+export async function seedCache({ from = DEMO_CACHE_DIR, to = CACHE_DIR } = {}) {
+  let names;
+  try { names = (await readdir(from)).filter((n) => n.endsWith(".json")); } catch { return 0; }
+  await mkdir(to, { recursive: true });
+  let copied = 0;
+  for (const name of names) {
+    try { await copyFile(join(from, name), join(to, name), fsConstants.COPYFILE_EXCL); copied++; } catch { /* already cached */ }
+  }
+  return copied;
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Default transport: the real providers through their OpenAI-compatible APIs.

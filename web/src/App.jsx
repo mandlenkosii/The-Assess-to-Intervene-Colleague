@@ -93,7 +93,7 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
 
       <section className="workspace-grid">
         <section className="card main-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Workspace</p><h2>Your class</h2></div><span className="count-label">{run ? `${learnerRecords.length} learners` : "No run loaded"}</span></div>
+          <div className="panel-heading"><div><p className="eyebrow">Workspace</p><h2>Your class</h2></div><div className="panel-heading-actions"><span className="count-label">{run ? `${learnerRecords.length} learners` : "No run loaded"}</span><a className="btn-secondary new-run-link" href="/">New run</a></div></div>
           <div className="tabs" role="tablist" aria-label="Class workspace">
             {["Learners", "Approval", "Outbox"].map((tab) => (
               <button
