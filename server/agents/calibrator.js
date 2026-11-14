@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { Mark } from "@colleague/shared";
+import { Mark, promptHints } from "@colleague/shared";
 import { checkMark } from "../checks.js";
 
 const BlindMarkSchema = Mark.pick({ script_id: true, scores: true });
+const BLIND_SHAPE = promptHints.Mark.replace(' "total_pct": number,', "").replace(/, "feedback": [^}]*\}$/, "}");
 
 function stableRank(scriptId) {
   return createHash("sha256").update(scriptId).digest("hex");
@@ -41,7 +42,8 @@ async function blindRemark({ scriptId, text, rubric }, ctx) {
       content: [
         "You are an independent, strict marker. Mark the script without access to any earlier mark.",
         "Use the supplied rubric only, quote exact script evidence for every criterion, and return no feedback.",
-        "Return script_id and scores only."
+        "Return script_id and scores only.",
+        `Return exactly this JSON shape, with one score per rubric criterion: ${BLIND_SHAPE}`
       ].join(" ")
     },
     {

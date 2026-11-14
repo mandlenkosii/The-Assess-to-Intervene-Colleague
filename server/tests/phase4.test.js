@@ -48,14 +48,15 @@ test("llm: invalid JSON gets one repair turn; code fences are tolerated", async 
 
 test("llm: 429s are retried with backoff, then Gemini takes over", async () => {
   const dir = tmp();
-  let groqCalls = 0;
+  const groqModels = [];
   const rateLimited = Object.assign(new Error("rate limited"), { status: 429, headers: {} });
   const llm = createLLM({
     cacheDir: dir, retryBaseMs: 1, primary: "groq",
-    transport: { groq: async () => { groqCalls++; throw rateLimited; }, gemini: async (body) => { assert.equal(body.response_format, undefined); return '{"ok":true}'; } },
+    transport: { groq: async (body) => { groqModels.push(body.model); throw rateLimited; }, gemini: async (body) => { assert.equal(body.response_format, undefined); return '{"ok":true}'; } },
   });
   assert.deepEqual(await llm.json(msgs, { schema: Pong }), { ok: true });
-  assert.equal(groqCalls, 3, "3 tries on Groq");
+  // The first Groq model hands over at once; the last Groq model gets the 3 backoff tries.
+  assert.deepEqual(groqModels, [env.GROQ_MODEL_LARGE, ...Array(3).fill(env.GROQ_EXTRA_MODELS.at(-1))]);
   assert.equal(llm.stats.retries429, 2);
   assert.equal(llm.stats.fallbacks, 1);
   rmSync(dir, { recursive: true, force: true });
@@ -89,10 +90,10 @@ test("llm: Gemini answers first by default and Groq is the fallback", async () =
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("llm: when a model's daily quota is used up, the next free model on the same key answers; it's then skipped", async () => {
+test("llm: a rate-limited model hands over to the next free model on the same key at once, then rests", async () => {
   const dir = tmp();
   const models = [];
-  const quota = Object.assign(new Error("429 You exceeded your current quota"), { status: 429 });
+  const quota = Object.assign(new Error("429 status code (no body)"), { status: 429 }); // what Gemini's 429 looks like via the SDK
   const llm = createLLM({
     cacheDir: dir, retryBaseMs: 1, primary: "gemini",
     transport: {
@@ -101,9 +102,9 @@ test("llm: when a model's daily quota is used up, the next free model on the sam
     },
   });
   assert.deepEqual(await llm.json(msgs, { schema: Pong, cache: false }), { ok: true });
-  assert.deepEqual(models, [env.GEMINI_MODEL, env.GEMINI_EXTRA_MODELS[0]]); // no retries on a daily quota
+  assert.deepEqual(models, [env.GEMINI_MODEL, env.GEMINI_EXTRA_MODELS[0]]); // no waiting on the busy model
   await llm.json(msgs, { schema: Pong, cache: false });
-  assert.deepEqual(models.slice(2), [env.GEMINI_EXTRA_MODELS[0]]);        // the exhausted model is skipped
+  assert.deepEqual(models.slice(2), [env.GEMINI_EXTRA_MODELS[0]]);        // the busy model is resting
   assert.equal(llm.stats.retries429, 0);
   rmSync(dir, { recursive: true, force: true });
 });

@@ -1,4 +1,4 @@
-import { Diagnosis } from "@colleague/shared";
+import { Diagnosis, promptHints } from "@colleague/shared";
 
 const asArray = (value) => Array.isArray(value) ? value : Object.values(value ?? {});
 
@@ -71,7 +71,7 @@ export async function diagnose({ marks, rubric, plan = {}, learners = [] }, ctx)
     const result = await ctx.llm.json([
       {
         role: "system",
-        content: "Return only JSON. Use supplied marks as the only source of evidence."
+        content: `Return only JSON, exactly this shape: ${promptHints.Diagnosis}. Use supplied marks as the only source of evidence.`
       },
       {
         role: "user",

@@ -1,4 +1,4 @@
-import { Task } from "@colleague/shared";
+import { Task, promptHints } from "@colleague/shared";
 
 export async function buildTask({ diagnosis, rubric, feedback = "", attempt = 1 }, ctx) {
   if (!diagnosis?.learner_id || !diagnosis.root_gap) {
@@ -11,7 +11,7 @@ export async function buildTask({ diagnosis, rubric, feedback = "", attempt = 1 
   const result = await ctx.llm.json([
     {
       role: "system",
-      content: "Build a Grade 10 practice task targeted only to the supplied diagnosis. Return only JSON."
+      content: `Build a Grade 10 practice task targeted only to the supplied diagnosis. Return only JSON, exactly this shape: ${promptHints.Task}`
     },
     {
       role: "user",
