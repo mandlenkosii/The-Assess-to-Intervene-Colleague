@@ -39,7 +39,8 @@ export async function brief({ run }, ctx) {
 
   let summary = "";
   if (ctx?.llm?.json) {
-    const prompt = await fs.readFile(new URL("../prompts/brief.md", import.meta.url), "utf8");
+    // LF on every machine, so the shipped demo answers (keyed on the exact prompt) match on Windows and on Render.
+    const prompt = (await fs.readFile(new URL("../prompts/brief.md", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
     const facts = {
       scripts_marked: counts.total,
       corrections_made: counts.corrected,

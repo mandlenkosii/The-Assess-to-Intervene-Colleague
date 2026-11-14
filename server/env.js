@@ -26,8 +26,9 @@ export const env = {
   // FAKE_LLM=1 runs the app on the deterministic fake model (no keys, no rate limits) for UI work and rehearsals.
   FAKE_LLM: process.env.FAKE_LLM === "1",
   FAKE_LLM_LATENCY_MS: Number(process.env.FAKE_LLM_LATENCY_MS || 250),
-  // DEMO_PACE_MS=300 slows cache hits so a cached demo run unfolds at a watchable speed (0 = off).
-  DEMO_PACE_MS: Number(process.env.DEMO_PACE_MS || 0),
+  // Pause after each cached answer so a replayed demo run unfolds at a watchable speed. On by default (600 ms),
+  // because the live demo replays the shipped answers in data/demo-cache/; set DEMO_PACE_MS=0 to turn it off.
+  DEMO_PACE_MS: Number(process.env.DEMO_PACE_MS ?? 600),
   // Handwritten script photos (feature flag, off by default). Off = the app behaves exactly as before.
   FEATURE_HANDWRITING: ["1", "true"].includes(String(process.env.FEATURE_HANDWRITING || "").toLowerCase()),
   GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-3.5-flash-lite",
