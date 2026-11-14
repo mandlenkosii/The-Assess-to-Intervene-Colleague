@@ -31,7 +31,9 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
   // LLM_PRIMARY picks who answers first; the other provider is the fallback.
   const order = primary === "groq" ? ["groq", "gemini"] : ["gemini", "groq"];
   const send = { groq, gemini };
-  const modelFor = (name, tier) => name === "gemini" ? env.GEMINI_MODEL : tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
+  const modelFor = (name, tier) => tier === "vision"
+    ? (name === "gemini" ? env.GEMINI_VISION_MODEL : env.GROQ_VISION_MODEL) // image input (handwriting feature only)
+    : name === "gemini" ? env.GEMINI_MODEL : tier === "small" ? env.GROQ_MODEL_SMALL : env.GROQ_MODEL_LARGE;
   const lead = order.find((name) => send[name]) ?? order[0];
   if (!groq && !gemini) log("llm: no GROQ_API_KEY or GEMINI_API_KEY set; only cached responses will work");
 
@@ -62,9 +64,15 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
     }
   }
 
-  async function complete(messages, tier, temperature, maxTokens) {
+  // only (optional) pins this call to one provider, with no fallback: the handwriting check needs two readings
+  // from two *different* models, so a silent fallback would fake the second opinion. Without it the order is unchanged.
+  const orderFor = (only) => (only ? order.filter((n) => n === only) : order);
+
+  async function complete(messages, tier, temperature, maxTokens, only) {
     let lastErr;
     let tried = 0;
+    const order = orderFor(only);
+    if (only && !send[only]) throw new Error(`${only} is not configured (no API key)`);
     for (const name of order) {
       if (!send[name]) continue;
       if (tried++) stats.fallbacks++;
@@ -84,11 +92,11 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
    * @param {Array<{role:string, content:string}>} messages
    * @param {{schema: import('zod').ZodTypeAny, tier?: 'large'|'small', temperature?: number, maxTokens?: number, cache?: boolean}} opts
    */
-  async function json(messages, { schema, tier = "large", temperature = 0.2, maxTokens = 2048, cache = true } = {}) {
+  async function json(messages, { schema, tier = "large", temperature = 0.2, maxTokens = 2048, cache = true, only } = {}) {
     if (!schema) throw new Error("llm.json needs a Zod schema");
     const msgs = withJsonInstruction(messages);
     // Key on the *primary* model so a Gemini-fallback answer is reused on the next run too.
-    const model = modelFor(lead, tier);
+    const model = modelFor(only ?? lead, tier);
     const key = createHash("sha256").update(JSON.stringify({ model, msgs, temperature })).digest("hex");
     const file = join(cacheDir, `${key}.json`);
 
@@ -104,14 +112,14 @@ export function createLLM({ log = () => {}, transport = openAITransport(), cache
       } catch { /* miss */ }
     }
 
-    let raw = await complete(msgs, tier, temperature, maxTokens);
+    let raw = await complete(msgs, tier, temperature, maxTokens, only);
     let result = validate(raw, schema);
     if (!result.ok) {
       stats.repairs++;
       log(`llm: invalid JSON, asking for a repair (${result.error.slice(0, 120)})`);
       raw = await complete(
         [...msgs, { role: "assistant", content: raw }, { role: "user", content: `Your JSON was invalid: ${result.error}. Return ONLY the corrected JSON object, nothing else.` }],
-        tier, 0, maxTokens,
+        tier, 0, maxTokens, only,
       );
       result = validate(raw, schema);
       if (!result.ok) throw new Error(`Model returned invalid JSON after repair: ${result.error}`);

@@ -22,4 +22,11 @@ export const env = {
   FAKE_LLM_LATENCY_MS: Number(process.env.FAKE_LLM_LATENCY_MS || 250),
   // DEMO_PACE_MS=300 slows cache hits so a cached demo run unfolds at a watchable speed (0 = off).
   DEMO_PACE_MS: Number(process.env.DEMO_PACE_MS || 0),
+  // Handwritten script photos (feature flag, off by default). Off = the app behaves exactly as before.
+  FEATURE_HANDWRITING: ["1", "true"].includes(String(process.env.FEATURE_HANDWRITING || "").toLowerCase()),
+  GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-3.5-flash-lite",
+  GROQ_VISION_MODEL: process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b",
+  // Flag a transcription for the teacher above this share of [illegible] words, or this much disagreement between the two readings.
+  HANDWRITING_ILLEGIBLE_MAX: Number(process.env.HANDWRITING_ILLEGIBLE_MAX || 0.15),
+  HANDWRITING_DISAGREE_MAX: Number(process.env.HANDWRITING_DISAGREE_MAX || 0.2),
 };

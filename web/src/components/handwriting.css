@@ -1,0 +1,42 @@
+/* Handwritten scripts review (FEATURE_HANDWRITING). Uses the tokens from theme.css. */
+.hw-review {
+  position: relative; z-index: 1; max-width: 1100px; width: calc(100% - 32px); margin: -64px auto 48px; padding: 28px;
+  background: rgba(13, 12, 20, .86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line-strong); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .9);
+  animation: rise .5s var(--ease) both;
+}
+.hw-progress { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--text-2); }
+.hw-spinner {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--gold);
+  animation: hw-spin .8s linear infinite;
+}
+@keyframes hw-spin { to { transform: rotate(360deg); } }
+
+.hw-list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+.hw-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 14px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+}
+.hw-item.is-flagged { border-color: rgba(244, 114, 182, .45); }
+.hw-image { margin: 0; display: grid; gap: 6px; align-content: start; }
+.hw-image img, .hw-image iframe {
+  width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line);
+  background: #fff;
+}
+.hw-image iframe { height: 420px; }
+.hw-image figcaption { font-size: 12px; color: var(--text-2); }
+.hw-text { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.hw-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.hw-reasons { margin: 0; padding-left: 18px; color: var(--pink); font-size: 13px; }
+.hw-note { margin: 0; font-size: 12px; color: var(--text-2); }
+.hw-textarea { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; min-height: 180px; }
+.hw-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+
+@media (max-width: 760px) {
+  .hw-item { grid-template-columns: 1fr; }
+  .hw-review { padding: 20px; margin-top: -40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-spinner { animation: none; }
+  .hw-review { animation: none; }
+}

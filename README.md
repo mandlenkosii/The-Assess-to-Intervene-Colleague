@@ -95,6 +95,21 @@ If port 5173 is busy, Vite picks the next free port; check the terminal. Never c
 | `npm test` | Node test runner over the server and marking tests |
 | `npm run build && npm start` | Production: Express serves `web/dist` and the API on one port |
 
+## Handwritten scripts (feature flag, off by default)
+
+**Why:** many South African classrooms still write by hand. With `FEATURE_HANDWRITING=true`, a teacher can upload phone photos or scans instead of typing every script.
+
+**Turn it on:** set `FEATURE_HANDWRITING=true` (in `.env` locally, or in Render's environment) and restart. Set it back to `false` to turn it off; the app then behaves exactly as before.
+
+**How it works:**
+1. Under **Or use your own class files**, a **Handwritten scripts** field appears. Add one `.jpg`, `.jpeg`, `.png` or image-only `.pdf` per learner, named by learner id (for example `L001.jpg`). Photos are shrunk in the browser before upload.
+2. **Read handwriting** sends them to the Transcriber. Two different models read each page independently: Gemini (`GEMINI_VISION_MODEL`) and Groq (`GROQ_VISION_MODEL`). Code keeps only the words both agree on; every other word becomes `[illegible]`, so nothing is guessed. PDFs are read by Gemini twice, because Groq can't open PDFs, and are labelled "single-model".
+3. **Self-check:** if more than `HANDWRITING_ILLEGIBLE_MAX` (default 15%) of the words are illegible, the readings disagree on more than `HANDWRITING_DISAGREE_MAX` (default 20%), or a model fails, the script is flagged **transcription needs teacher** and logged at stage `correct`.
+4. **Review:** each photo is shown next to its transcription. The teacher edits the text; flagged scripts must be edited or ticked as checked before **Start marking** unlocks.
+5. Marking runs as a normal upload. The Marker treats `[illegible]` as missing, never as wrong, and says so in the feedback.
+
+Typed TXT, PDF and DOCX files never go through this path. Images stay in memory and are never written to disk. Test only with synthetic or anonymised handwriting (see `server/tests/fixtures/handwriting/`); never commit real learner images. Each handwritten script costs about two vision model calls.
+
 ## Models
 
 All model calls go through `server/llm.js`. **Gemini is the primary model and Groq is the fallback.**
@@ -157,7 +172,7 @@ vercel.json              Vercel build and the /api rewrite to Render
 runs/ .cache/            Run state and logs, and the model cache (gitignored)
 ```
 
-**API routes** (all under `/api`): `GET /health`, `POST /runs/demo`, `POST /runs` (upload), `GET /runs/latest`, `GET /runs/:id`, `GET /runs/:id/events` (SSE), `POST /runs/:id/approve`, `GET /runs/:id/brief`, `GET /runs/:id/marks.xlsx`.
+**API routes** (all under `/api`): `GET /health`, `GET /features`, `POST /transcriptions` and `GET /transcriptions/:id` (handwriting flag only), `POST /runs/demo`, `POST /runs` (upload), `GET /runs/latest`, `GET /runs/:id`, `GET /runs/:id/events` (SSE), `POST /runs/:id/approve`, `GET /runs/:id/brief`, `GET /runs/:id/marks.xlsx`.
 
 ## Marking foundation
 

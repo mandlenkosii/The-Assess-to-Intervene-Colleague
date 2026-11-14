@@ -13,14 +13,17 @@ import multer from "multer";
 import { join } from "node:path";
 import { InputError, loadDemoInputs, uploadInputs } from "../inputs.js";
 import { approveRun, runColleague } from "../orchestrator.js";
+import { env } from "../env.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 80 } });
 
-export function runsRouter({ store, llm, agents }) {
+export function runsRouter({ store, llm, agents, transcriptions }) {
   const router = express.Router();
 
-  const start = (input) => {
+  const start = (input, priorEvents = []) => {
     const run = store.create(input);
+    // Handwritten scripts: the transcription's own log (incl. "transcription needs teacher") opens the run's log.
+    for (const event of priorEvents) store.emit(run.id, event);
     // Fire and forget: the client follows progress over SSE.
     runColleague(run.id, { store, llm, agents });
     return run.id;
@@ -34,7 +37,8 @@ export function runsRouter({ store, llm, agents }) {
 
   router.post("/runs", upload.any(), async (req, res, next) => {
     try {
-      res.status(201).json({ runId: start(await uploadInputs({ goal: req.body?.goal, files: req.files ?? [] })) });
+      const job = env.FEATURE_HANDWRITING && req.body?.transcriptionId ? transcriptions?.get(String(req.body.transcriptionId)) : null;
+      res.status(201).json({ runId: start(await uploadInputs({ goal: req.body?.goal, files: req.files ?? [] }), job?.log ?? []) });
     } catch (err) { next(err); }
   });
 

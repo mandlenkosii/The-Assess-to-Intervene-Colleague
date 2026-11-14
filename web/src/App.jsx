@@ -65,7 +65,9 @@ export default function App({ run, loading = false, onApprove, busy = false }) {
   const currentStage = run?.status === "done" ? -1 : stages.findIndex((stage) => stage.toLowerCase() === events.at(-1)?.stage);
   const reachedStage = run?.status === "done"
     ? stages.length
-    : events.reduce((furthest, event) => Math.max(furthest, stages.findIndex((stage) => stage.toLowerCase() === event.stage)), -1);
+    // Transcription events (handwriting feature) happen before marking, so they don't move the rail.
+    : events.filter((event) => event.agent !== "transcriber")
+      .reduce((furthest, event) => Math.max(furthest, stages.findIndex((stage) => stage.toLowerCase() === event.stage)), -1);
 
   return (
     <main className="app-shell">
